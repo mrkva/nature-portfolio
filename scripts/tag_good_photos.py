@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Add the portfolio tag ("good photos") to the selected observations on iNaturalist.
+"""Add the portfolio tag ("Portfolio") to the selected observations on iNaturalist.
 
 Selection = data/cameras.json entries whose make is not Apple/Olympus
             ∪ data/selection.json  −  data/exclude.json   (same rules as build_index.py)

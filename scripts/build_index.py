@@ -2,7 +2,7 @@
 """Build data/index.json — a static index of portfolio observations from iNaturalist.
 
 Selection rules (union):
-  * observations tagged TAG on iNaturalist (default "good photos"), and
+  * observations tagged TAG on iNaturalist (default "Portfolio"), and
   * observation IDs listed in data/selection.json (bootstrap list, optional).
 Observation IDs listed in data/exclude.json are always dropped.
 
@@ -14,7 +14,7 @@ forces Fungi. Run with no network by passing --cache <dir> (dev only).
 import json, os, sys, time, urllib.request, urllib.parse, datetime
 
 USER = os.environ.get("INAT_USER", "jonasgruska")
-TAG = os.environ.get("PORTFOLIO_TAG", "good photos").lower()
+TAG = os.environ.get("PORTFOLIO_TAG", "Portfolio").lower()
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, "data")
 API = "https://api.inaturalist.org/v1/observations"

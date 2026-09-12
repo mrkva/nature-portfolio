@@ -8,7 +8,7 @@ GitHub Action regenerates daily from the iNaturalist API.
 
 Observations appear when **either**:
 
-* they carry the tag **`good photos`** on iNaturalist (`PORTFOLIO_TAG` in the workflow), or
+* they carry the tag **`Portfolio`** on iNaturalist (`PORTFOLIO_TAG` in the workflow), or
 * their camera in `data/cameras.json` is not Apple / Olympus, or
 * their ID is listed in `data/selection.json` (manual additions).
 
@@ -39,7 +39,7 @@ Cloudflare. So the harvest runs in your browser:
    After passing a Cloudflare check, paste the script again: it resumes.
 2. Save every downloaded file into `data/` (all `data/cameras*.json` are
    merged), then `python3 scripts/build_index.py`.
-3. To write the `good photos` tag back to iNaturalist, get a token at
+3. To write the `Portfolio` tag back to iNaturalist, get a token at
    https://www.inaturalist.org/users/api_token and run
    `INAT_API_TOKEN=… python3 scripts/tag_good_photos.py --dry-run`, then
    without `--dry-run`. `--remove` strips the tag again.

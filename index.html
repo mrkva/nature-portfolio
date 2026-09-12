@@ -113,7 +113,7 @@
   <footer id="footer" hidden>
     <div><label>Species</label><p class="i" id="fLatin"></p></div>
     <div><label>English</label><p id="fEn"></p></div>
-    <div><label>Slovensky</label><p id="fSk"></p></div>
+    <div><label>Slovak</label><p id="fSk"></p></div>
     <div><label>Location</label><p id="fPlace"></p></div>
     <div><label>Date</label><p class="n" id="fDate"></p></div>
     <div><label>More info</label><p><a id="fUri" href="#" target="_blank" rel="noopener">iNaturalist ↗</a></p></div>
@@ -123,9 +123,9 @@
 <script>
 const CONFIG = {
   ownerName: 'Jonáš Gruska',
-  subtitle: 'Nature photography',
-  aboutText: 'Photographs of fungi, lichens, slime molds and small animals, mostly from Slovakia. All observations are documented on iNaturalist.',
-  email: 'hello@example.com',
+  subtitle: '(Mostly) lichen photography',
+  aboutText: 'Photographs of fungi, lichens, slime molds and small animals from all around the world. All photos are mine, from observations that are documented on iNaturalist.',
+  email: 'jonas@lom.audio',
   inatUser: 'jonasgruska',
   intervalSec: 10,
   indexUrl: 'data/index.json',
@@ -177,7 +177,7 @@ async function load() {
     state.items = []; state.cats = [];
   }
   $('loading').hidden = true;
-  $('tagName').textContent = state.tag || 'good photos';
+  $('tagName').textContent = state.tag || 'Portfolio';
   readHash();
   renderCats();
   show(state.idx, true);
