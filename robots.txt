@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /data/
+Disallow: /scripts/
+Disallow: /archive/
+
+Sitemap: https://mrkva.github.io/nature-portfolio/sitemap.xml
