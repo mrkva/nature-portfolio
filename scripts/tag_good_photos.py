@@ -50,12 +50,15 @@ def main():
         makes[c.get("make") or "(manual)"] = makes.get(c.get("make") or "(manual)", 0) + 1
     print(f"{len(ids)} candidate observations to {'untag' if REMOVE else 'tag'} with '{TAG_WRITE}' "
           f"(cameras harvested: {len(cams)}); by make: {makes}")
-    changed = skipped = failed = low_res = 0
+    changed = skipped = failed = low_res = deleted = 0
     for i, oid in enumerate(ids, 1):
         try:
-            cur = api("GET", f"https://api.inaturalist.org/v1/observations/{oid}")["results"][0]
+            res = api("GET", f"https://api.inaturalist.org/v1/observations/{oid}")["results"]
         except Exception as e:
             print(f"  {oid}: fetch failed: {e}"); failed += 1; continue
+        if not res:
+            deleted += 1; continue   # observation no longer exists on iNaturalist (e.g. duplicate removed)
+        cur = res[0]
         if not REMOVE and oid not in manual and bi.long_edge(cur) < bi.MIN_LONG_EDGE:
             print(f"  [{i}/{len(ids)}] {oid} {cur['taxon']['name'] if cur.get('taxon') else ''}: skipped, stored at {bi.long_edge(cur)}px")
             low_res += 1; continue
@@ -81,7 +84,7 @@ def main():
         except Exception as e:
             print(f"    failed: {e}"); failed += 1
         time.sleep(1.0)  # be polite: iNat asks for ≤ 1 write/sec
-    print(f"done: {changed} changed, {skipped} already ok, {low_res} skipped as low-res, {failed} failed{' (dry run)' if DRY else ''}")
+    print(f"done: {changed} changed, {skipped} already ok, {low_res} skipped as low-res, {deleted} deleted on iNat, {failed} failed{' (dry run)' if DRY else ''}")
 
 
 if __name__ == "__main__":

@@ -55,10 +55,16 @@ def main():
     aff = json.load(open(os.path.join(REC, "affected.json")))
     if LIMIT:
         aff = aff[:LIMIT]
-    relinked = uploaded = skipped = failed = 0
+    relinked = uploaded = skipped = failed = deleted = 0
     for i, a in enumerate(aff, 1):
         oid = a["id"]
-        cur = request("GET", f"https://api.inaturalist.org/v1/observations/{oid}")["results"][0]
+        try:
+            res = request("GET", f"https://api.inaturalist.org/v1/observations/{oid}")["results"]
+        except urllib.error.HTTPError as e:
+            print(f"  [{i}/{len(aff)}] {oid}: fetch failed ({e.code}), skipping"); failed += 1; continue
+        if not res:
+            print(f"  [{i}/{len(aff)}] {oid}: deleted on iNaturalist, skipping"); deleted += 1; continue
+        cur = res[0]
         have = {p["id"] for p in (cur.get("photos") or [])}
         for pid in a["missing"]:
             if pid in have:
@@ -86,7 +92,7 @@ def main():
                     print(f"      upload failed ({e2.code}: {e2.read().decode(errors='replace')[:200]})"); failed += 1
             time.sleep(1.0)
         # after restoring photos iNaturalist re-evaluates quality grade on its own
-    print(f"done: {relinked} re-linked, {uploaded} uploaded, {skipped} already ok, {failed} failed{' (dry run)' if DRY else ''}")
+    print(f"done: {relinked} re-linked, {uploaded} uploaded, {skipped} already ok, {deleted} deleted on iNat, {failed} failed{' (dry run)' if DRY else ''}")
 
 
 if __name__ == "__main__":
