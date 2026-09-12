@@ -32,9 +32,13 @@ iNaturalist strips EXIF from image files and its API does not expose camera
 metadata; it is only shown on each photo's web page, which is behind
 Cloudflare. So the harvest runs in your browser:
 
-1. Open any page on www.inaturalist.org, open DevTools → Console, paste
-   `scripts/harvest_cameras.js`, press Enter. It downloads `cameras.json`.
-2. Save it as `data/cameras.json`, then `python3 scripts/build_index.py`.
+1. Open any page on **www**.inaturalist.org (progress is stored per origin),
+   open DevTools → Console, paste `scripts/harvest_cameras.js`, press Enter.
+   It goes one photo page at a time and backs off on rate limits. Whenever it
+   stops (done, or a Cloudflare check appeared) it downloads a `cameras-*.json`.
+   After passing a Cloudflare check, paste the script again: it resumes.
+2. Save every downloaded file into `data/` (all `data/cameras*.json` are
+   merged), then `python3 scripts/build_index.py`.
 3. To write the `good photos` tag back to iNaturalist, get a token at
    https://www.inaturalist.org/users/api_token and run
    `INAT_API_TOKEN=… python3 scripts/tag_good_photos.py --dry-run`, then

@@ -52,14 +52,20 @@ FALLBACK_N = 60
 EXCLUDED_MAKES = ("apple", "olympus", "om digital")
 
 
+def load_cameras():
+    """Merge every data/cameras*.json: {"<observation id>": {"make": "...", "model": "..."}} (see scripts/harvest_cameras.js)."""
+    cams = {}
+    for name in sorted(os.listdir(DATA)) if os.path.isdir(DATA) else []:
+        if name.startswith("cameras") and name.endswith(".json"):
+            for oid, c in json.load(open(os.path.join(DATA, name))).items():
+                if c.get("make") is not None and c.get("status") is None:
+                    cams[str(oid)] = c
+    return cams
+
+
 def select_from_cameras():
-    """data/cameras.json: {"<observation id>": {"make": "...", "model": "..."}} (see scripts/harvest_cameras.js)."""
-    p = os.path.join(DATA, "cameras.json")
-    if not os.path.exists(p):
-        return set()
-    cams = json.load(open(p))
     ids = set()
-    for oid, c in cams.items():
+    for oid, c in load_cameras().items():
         make = ((c.get("make") or "") + " " + (c.get("model") or "")).lower().strip()
         if make and not any(x in make for x in EXCLUDED_MAKES):
             ids.add(int(oid))
