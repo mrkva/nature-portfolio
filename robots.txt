@@ -4,4 +4,4 @@ Disallow: /data/
 Disallow: /scripts/
 Disallow: /archive/
 
-Sitemap: https://mrkva.github.io/nature-portfolio/sitemap.xml
+Sitemap: https://photos.jonasgru.sk/sitemap.xml
