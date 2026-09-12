@@ -2,8 +2,10 @@
 """Build data/index.json — a static index of portfolio observations from iNaturalist.
 
 Selection rules (union):
-  * observations tagged TAG on iNaturalist (default "Portfolio"), and
-  * observation IDs listed in data/selection.json (bootstrap list, optional).
+  * observations tagged TAG on iNaturalist (default "Portfolio") — the source of truth, and
+  * observation IDs listed in data/selection.json (manual additions, optional), and
+  * only with USE_CAMERAS=1: observations whose camera in data/cameras*.json is accepted
+    (that list feeds scripts/tag_good_photos.py; the website itself follows the tags).
 Observation IDs listed in data/exclude.json are always dropped.
 
 Categories are derived from taxonomy, with lichens split out of Fungi by
@@ -170,7 +172,7 @@ def main():
 
     sk_names = {o["id"]: (o.get("taxon") or {}).get("preferred_common_name") or "" for o in sk}
     selection, exclude = load_ids("selection.json"), load_ids("exclude.json")
-    by_camera = select_from_cameras()
+    by_camera = select_from_cameras() if os.environ.get("USE_CAMERAS") == "1" else set()
     usable = [o for o in en if o.get("taxon") and o.get("photos")]
     all_count = len(usable)
     is_tagged = lambda o: TAG in [s.lower() for s in (o.get("tags") or [])]

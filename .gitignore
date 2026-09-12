@@ -4,3 +4,4 @@ __pycache__/
 data/index.json
 img/jg.jpeg
 data/recovery/photos/
+data/cameras*.json
