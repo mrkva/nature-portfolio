@@ -24,7 +24,8 @@
   if (location.hostname !== 'www.inaturalist.org') { console.error(`Run this on https://www.inaturalist.org (you are on ${location.hostname}); progress is stored per origin.`); return; }
   const out = Object.assign(JSON.parse(localStorage.getItem(KEY) || '{}'), window.__cameras_seed || {});
   const save = () => localStorage.setItem(KEY, JSON.stringify(out));
-  const isDone = (e) => e && e.make !== undefined && e.status === undefined;
+  const V = 2;  // bump when the parser changes: older entries get re-fetched
+  const isDone = (e) => e && e.v === V && e.status === undefined;
   const download = (suffix) => {
     const n = Object.values(out).filter(isDone).length;
     const blob = new Blob([JSON.stringify(out, null, 1)], { type: 'application/json' });
@@ -52,9 +53,15 @@
   console.log(`observations: ${obs.length}, already done: ${obs.length - todo.length}, to fetch: ${todo.length}`);
 
   // 2. read Make / Model from each photo page's metadata table, one at a time
-  const grab = (html, key) => {
-    const m = html.match(new RegExp(`<t[hd][^>]*>\\s*${key}\\s*<\\/t[hd]>\\s*<td[^>]*>([^<]*)<`, 'i'));
-    return m ? m[1].trim() : '';
+  // The metadata table is <tr><th>Make</th><td class="ui">…markup…</td></tr>; read it via the DOM.
+  const parseMeta = (html) => {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const meta = {};
+    for (const th of doc.querySelectorAll('th')) {
+      const td = th.nextElementSibling;
+      if (td && td.tagName === 'TD') meta[th.textContent.trim().toLowerCase()] = td.textContent.replace(/\s+/g, ' ').trim();
+    }
+    return meta;
   };
   let done = 0, okStreak = 0;
   for (const o of todo) {
@@ -73,7 +80,9 @@
       const html = await r.text();
       if (r.status === 403 || /Just a moment|challenge-platform|cf-chl/.test(html)) { stopForChallenge(); return; }
       if (r.status !== 200) { out[o.id] = { photo: o.photo, status: r.status }; save(); break; }
-      out[o.id] = { photo: o.photo, make: grab(html, 'Make'), model: grab(html, 'Model') };
+      const meta = parseMeta(html);
+      out[o.id] = { photo: o.photo, v: V, make: meta['make'] || '', model: meta['model'] || '', software: meta['software'] || '' };
+      if (done === 0) console.log('first parsed entry:', out[o.id], 'rows seen:', Object.keys(meta).join(', '));
       save();
       if (++okStreak >= 20) { delay = Math.max(MIN_DELAY, Math.round(delay * 0.85)); okStreak = 0; }
       break;
