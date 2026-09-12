@@ -61,9 +61,16 @@ def long_edge(o):
     return max(d.get("width") or 0, d.get("height") or 0)
 
 
+# Photos with no camera metadata at all (e.g. exported from stacking software) are
+# excluded by default; INCLUDE_UNKNOWN_MAKE=1 treats them as accepted.
+INCLUDE_UNKNOWN_MAKE = os.environ.get("INCLUDE_UNKNOWN_MAKE", "") == "1"
+
+
 def camera_ok(make, model=""):
     name = f"{make} {model}".lower().strip()
-    return bool(name) and not any(x in name for x in EXCLUDED_MAKES)
+    if not name:
+        return INCLUDE_UNKNOWN_MAKE
+    return not any(x in name for x in EXCLUDED_MAKES)
 
 
 def load_cameras():
