@@ -61,9 +61,9 @@ def long_edge(o):
     return max(d.get("width") or 0, d.get("height") or 0)
 
 
-# Photos with no camera metadata at all (e.g. exported from stacking software) are
-# excluded by default; INCLUDE_UNKNOWN_MAKE=1 treats them as accepted.
-INCLUDE_UNKNOWN_MAKE = os.environ.get("INCLUDE_UNKNOWN_MAKE", "") == "1"
+# Photos with no camera metadata at all are mostly focus stacks exported without
+# EXIF, so they count as accepted; INCLUDE_UNKNOWN_MAKE=0 excludes them.
+INCLUDE_UNKNOWN_MAKE = os.environ.get("INCLUDE_UNKNOWN_MAKE", "1") != "0"
 
 
 def camera_ok(make, model=""):
