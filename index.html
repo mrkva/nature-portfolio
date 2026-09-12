@@ -60,7 +60,7 @@
   .page .links{max-width:560px;font-size:16px;line-height:1.55;display:grid;gap:12px}
   .page a{text-decoration:underline;text-underline-offset:3px}
   #grid{position:absolute;inset:0;overflow-y:auto}
-  #grid .cells{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:1px;background:var(--fg);border-bottom:1px solid var(--fg)}
+  #grid .cells{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:1px;background:var(--fg);border-bottom:1px solid var(--fg)}
   #grid button{position:relative;aspect-ratio:1;overflow:hidden;display:block}
   #grid img{width:100%;height:100%;object-fit:cover;display:block}
   #grid span{position:absolute;left:0;right:0;bottom:0;padding:8px 10px;background:var(--bg);border-top:1px solid var(--fg);font-size:11px;font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -80,6 +80,7 @@
     footer{grid-template-columns:repeat(2,1fr)}
     .page{padding:24px 12px}
     .about{grid-template-columns:1fr;gap:24px}
+    #grid .cells{grid-template-columns:repeat(2,1fr)}
     .about .portrait{max-width:320px}
   }
 </style>
@@ -181,7 +182,7 @@ function stageSize() {
 }
 const photoUrl = (p, size) => `${p.base}/${size}.${p.ext}`;
 const stageUrl = (o) => photoUrl(o.photos[0], stageSize());
-const thumbUrl = (o) => photoUrl(o.photos[0], 'medium');
+const thumbUrl = (o) => photoUrl(o.photos[0], 'large');   // grid cells are ~340px+, retina needs the 1024px size
 
 function preload(url) {
   if (cache.has(url)) return cache.get(url);
