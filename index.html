@@ -18,21 +18,21 @@
   #app{position:fixed;inset:0;display:grid;grid-template-rows:auto minmax(0,1fr) auto;background:#fff;border:1px solid #111;box-sizing:border-box}
   header{display:grid;grid-template-columns:minmax(160px,auto) 1fr auto;gap:1px;background:#111;border-bottom:1px solid #111}
   .brand{display:grid;grid-template-rows:1fr auto;gap:1px;background:#111}
-  .brand .name{display:flex;flex-direction:column;justify-content:center;align-items:flex-start;padding:10px 16px;white-space:nowrap;line-height:1.2}
+  .brand .name{display:flex;flex-direction:column;justify-content:center;align-items:flex-start;padding:6px 16px;white-space:nowrap;line-height:1.2}
   .brand .name b{font-size:14px;font-weight:700;letter-spacing:.02em}
   .brand .name span{font-size:8px;color:#777;text-transform:uppercase;letter-spacing:.12em;margin-top:3px}
   .brand .name.on span{color:#aaa}
   .brand .pages{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#111}
-  .brand .pages button{height:32px;padding:0 16px;font-size:12px}
-  nav{display:flex;flex-wrap:wrap;background:#fff;align-content:stretch;overflow:hidden;margin-bottom:-1px}
-  nav button{min-height:44px;padding:0 16px;box-shadow:0 0 0 1px #111;margin:0 1px 1px 0;flex:1 0 auto;justify-content:center;display:flex;align-items:center;gap:8px}
+  .brand .pages button{height:26px;padding:0 16px;font-size:12px}
+  nav{display:flex;flex-wrap:wrap;background:#fff;align-content:stretch;overflow:hidden;margin:0 -1px -1px -1px}
+  nav button{min-height:34px;padding:0 16px;box-shadow:0 0 0 1px #111;margin:0 1px 1px 0;flex:1 0 auto;justify-content:center;display:flex;align-items:center;gap:8px}
   nav button small{font-size:10px;opacity:.55;font-variant-numeric:tabular-nums}
   .tools{display:flex;gap:1px;background:#111;align-items:stretch}
-  .tools .counter{min-height:44px;padding:0 16px;display:flex;align-items:center;gap:12px;background:#fff;font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .tools .counter{min-height:34px;padding:0 16px;display:flex;align-items:center;gap:12px;background:#fff;font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
   .tools .counter:empty{display:none}
-  .tools .counter button{width:26px;height:26px;border:1px solid #111;display:grid;place-items:center;font-size:9px}
+  .tools .counter button{width:22px;height:22px;border:1px solid #111;display:grid;place-items:center;font-size:9px}
   .tools .counter button:hover{background:#111;color:#fff}
-  .tools > button{min-height:44px;padding:0 16px}
+  .tools > button{min-height:34px;padding:0 16px}
 
   main{position:relative;min-height:0;overflow:hidden}
   .msg{position:absolute;inset:0;display:grid;place-items:center;padding:40px;text-align:center;font-size:13px;color:#777;line-height:1.6}
@@ -221,7 +221,7 @@ function renderCats() {
 
 function renderFooter() {
   const list = visible(), cur = list[state.idx];
-  const showF = !!cur && (state.view === 'slides' || state.view === 'grid');
+  const showF = !!cur && state.view === 'slides';
   $('footer').hidden = !showF;
   if (cur) {
     $('fLatin').textContent = cur.latin;
