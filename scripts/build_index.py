@@ -50,6 +50,20 @@ MYXO = 47684  # class Myxomycetes
 FALLBACK_N = 60
 # Camera makes that are NOT portfolio material (case-insensitive substring match).
 EXCLUDED_MAKES = ("apple", "olympus", "om digital")
+# iNaturalist stores photos at most 2048 px on the long edge; anything smaller was
+# uploaded small or cropped hard. Automatic (camera-based) selection skips those.
+# Explicitly tagged observations are never filtered by size.
+MIN_LONG_EDGE = int(os.environ.get("MIN_LONG_EDGE", "2048"))
+
+
+def long_edge(o):
+    d = (o.get("photos") or [{}])[0].get("original_dimensions") or {}
+    return max(d.get("width") or 0, d.get("height") or 0)
+
+
+def camera_ok(make, model=""):
+    name = f"{make} {model}".lower().strip()
+    return bool(name) and not any(x in name for x in EXCLUDED_MAKES)
 
 
 def load_cameras():
@@ -64,12 +78,8 @@ def load_cameras():
 
 
 def select_from_cameras():
-    ids = set()
-    for oid, c in load_cameras().items():
-        make = ((c.get("make") or "") + " " + (c.get("model") or "")).lower().strip()
-        if make and not any(x in make for x in EXCLUDED_MAKES):
-            ids.add(int(oid))
-    return ids
+    """Observation IDs whose first photo came from an accepted camera (no size check here)."""
+    return {int(oid) for oid, c in load_cameras().items() if camera_ok(c.get("make") or "", c.get("model") or "")}
 
 
 def get(url, tries=5):
@@ -153,11 +163,24 @@ def main():
 
     sk_names = {o["id"]: (o.get("taxon") or {}).get("preferred_common_name") or "" for o in sk}
     selection, exclude = load_ids("selection.json"), load_ids("exclude.json")
-    selection |= select_from_cameras()
+    by_camera = select_from_cameras()
     usable = [o for o in en if o.get("taxon") and o.get("photos")]
     all_count = len(usable)
     is_tagged = lambda o: TAG in [s.lower() for s in (o.get("tags") or [])]
-    chosen = [o for o in usable if o["id"] not in exclude and (is_tagged(o) or o["id"] in selection)]
+    low_res = 0
+    chosen = []
+    for o in usable:
+        if o["id"] in exclude:
+            continue
+        if is_tagged(o) or o["id"] in selection:
+            chosen.append(o)
+        elif o["id"] in by_camera:
+            if long_edge(o) >= MIN_LONG_EDGE:
+                chosen.append(o)
+            else:
+                low_res += 1
+    if low_res:
+        print(f"skipped {low_res} camera-selected observations below {MIN_LONG_EDGE}px", file=sys.stderr)
     fallback = False
     if not chosen:
         # Nothing selected yet: preview the most-faved research-grade observations.
