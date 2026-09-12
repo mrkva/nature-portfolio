@@ -68,8 +68,15 @@ def main():
         if DRY:
             changed += 1; continue
         try:
+            # ignore_photos MUST be top-level: without it iNaturalist removes every photo
+            # that is not part of the request (this once stripped photos from hundreds
+            # of observations). Verified after the call that the photo count is unchanged.
+            before = len(cur.get("photos") or [])
             api("PUT", f"https://api.inaturalist.org/v1/observations/{oid}",
-                {"observation": {"tag_list": ",".join(new), "ignore_photos": 1}})
+                {"ignore_photos": True, "observation": {"tag_list": ",".join(new)}})
+            after = api("GET", f"https://api.inaturalist.org/v1/observations/{oid}")["results"][0]
+            if len(after.get("photos") or []) != before:
+                raise SystemExit(f"ABORT: photo count changed on {oid} ({before} -> {len(after.get('photos') or [])}); stopping.")
             changed += 1
         except Exception as e:
             print(f"    failed: {e}"); failed += 1
