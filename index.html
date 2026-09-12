@@ -24,7 +24,7 @@
   .brand .name.on span{color:#aaa}
   .brand .pages{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#111}
   .brand .pages button{height:26px;padding:0 16px;font-size:12px}
-  nav{display:flex;flex-wrap:wrap;background:#fff;align-content:stretch;overflow:hidden;margin:0 -1px -1px -1px}
+  nav{display:flex;flex-wrap:wrap;background:#fff;align-content:stretch;overflow:hidden;margin:0 -1px -1px 0}
   nav button{min-height:34px;padding:0 16px;box-shadow:0 0 0 1px #111;margin:0 1px 1px 0;flex:1 0 auto;justify-content:center;display:flex;align-items:center;gap:8px}
   nav button small{font-size:10px;opacity:.55;font-variant-numeric:tabular-nums}
   .tools{display:flex;gap:1px;background:#111;align-items:stretch}
@@ -135,7 +135,7 @@ const CONFIG = {
 
 const $ = (id) => document.getElementById(id);
 const dash = (v) => v || '—';
-const state = { items: [], cats: [], cat: 'All', idx: 0, view: 'slides', paused: false, timer: null, fallback: false, tag: '' };
+const state = { items: [], cats: [], cat: 'All', idx: 0, view: 'slides', galleryView: 'slides', paused: false, timer: null, fallback: false, tag: '' };
 const cache = new Map();          // url -> Image (keeps decoded images alive)
 const CACHE_MAX = 24;
 
@@ -214,7 +214,11 @@ function renderCats() {
     const b = document.createElement('button');
     b.innerHTML = `${c.name} <small>${c.count}</small>`;
     b.classList.toggle('on', c.name === state.cat);
-    b.onclick = () => { state.cat = c.name; state.idx = 0; renderCats(); show(0); if (state.view === 'grid') renderGrid(); };
+    b.onclick = () => {
+      state.cat = c.name; state.idx = 0; renderCats();
+      if (state.view === 'about' || state.view === 'contact') setView(state.galleryView);
+      show(0); if (state.view === 'grid') renderGrid();
+    };
     nav.appendChild(b);
   }
 }
@@ -286,6 +290,7 @@ function renderGrid() {
 
 function setView(view) {
   state.view = view;
+  if (view === 'slides' || view === 'grid') state.galleryView = view;
   for (const v of ['slides', 'grid', 'about', 'contact']) $(v).hidden = v !== view;
   $('btnSlides').classList.toggle('on', view === 'slides');
   $('btnGrid').classList.toggle('on', view === 'grid');
