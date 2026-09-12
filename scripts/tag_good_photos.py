@@ -22,13 +22,16 @@ TOKEN = os.environ.get("INAT_API_TOKEN")
 DRY = "--dry-run" in sys.argv
 REMOVE = "--remove" in sys.argv
 LIMIT = int(sys.argv[sys.argv.index("--limit") + 1]) if "--limit" in sys.argv else None
-TAG = bi.TAG
+TAG = bi.TAG                      # lower-case, for matching
+TAG_WRITE = os.environ.get("PORTFOLIO_TAG", "Portfolio")  # what gets written
 
 
 def api(method, url, body=None):
     data = json.dumps(body).encode() if body is not None else None
-    req = urllib.request.Request(url, data=data, method=method, headers={
-        "Authorization": TOKEN, "Content-Type": "application/json", "User-Agent": bi.UA})
+    headers = {"Content-Type": "application/json", "User-Agent": bi.UA}
+    if TOKEN:
+        headers["Authorization"] = TOKEN
+    req = urllib.request.Request(url, data=data, method=method, headers=headers)
     with urllib.request.urlopen(req, timeout=60) as r:
         return json.load(r)
 
@@ -45,7 +48,7 @@ def main():
     for oid in ids:
         c = cams.get(str(oid), {})
         makes[c.get("make") or "(manual)"] = makes.get(c.get("make") or "(manual)", 0) + 1
-    print(f"{len(ids)} candidate observations to {'untag' if REMOVE else 'tag'} with '{TAG}' "
+    print(f"{len(ids)} candidate observations to {'untag' if REMOVE else 'tag'} with '{TAG_WRITE}' "
           f"(cameras harvested: {len(cams)}); by make: {makes}")
     changed = skipped = failed = low_res = 0
     for i, oid in enumerate(ids, 1):
@@ -60,7 +63,7 @@ def main():
         has = any(t.lower() == TAG for t in tags)
         if (has and not REMOVE) or (not has and REMOVE):
             skipped += 1; continue
-        new = [t for t in tags if t.lower() != TAG] if REMOVE else tags + [TAG]
+        new = [t for t in tags if t.lower() != TAG] if REMOVE else tags + [TAG_WRITE]
         print(f"  [{i}/{len(ids)}] {oid} {cur['taxon']['name'] if cur.get('taxon') else ''}: {tags} -> {new}")
         if DRY:
             changed += 1; continue
