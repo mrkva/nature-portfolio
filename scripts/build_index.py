@@ -1,0 +1,202 @@
+#!/usr/bin/env python3
+"""Build data/index.json — a static index of portfolio observations from iNaturalist.
+
+Selection rules (union):
+  * observations tagged TAG on iNaturalist (default "good photos"), and
+  * observation IDs listed in data/selection.json (bootstrap list, optional).
+Observation IDs listed in data/exclude.json are always dropped.
+
+Categories are derived from taxonomy, with lichens split out of Fungi by
+ancestry (lichenized classes/orders/genera), so the Fungi filter never shows
+lichens and vice versa. Tags "lichen"/"lišajník" force Lichen; "nolichen"
+forces Fungi. Run with no network by passing --cache <dir> (dev only).
+"""
+import json, os, sys, time, urllib.request, urllib.parse, datetime
+
+USER = os.environ.get("INAT_USER", "jonasgruska")
+TAG = os.environ.get("PORTFOLIO_TAG", "good photos").lower()
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA = os.path.join(ROOT, "data")
+API = "https://api.inaturalist.org/v1/observations"
+UA = "nature-portfolio-build (github pages; +https://www.inaturalist.org/people/%s)" % USER
+
+# iNaturalist taxon IDs of lichenized fungi groups.
+LICHEN_TAXA = {
+    54743,   # class Lecanoromycetes (the bulk of lichens)
+    152028,  # class Arthoniomycetes
+    152030,  # class Lichinomycetes
+    152550,  # order Candelariales
+    117869,  # order Verrucariales (Eurotiomycetes)
+    117881,  # order Pyrenulales (Eurotiomycetes)
+    152541,  # order Trypetheliales (Dothideomycetes)
+    791622,  # order Monoblastiales (Dothideomycetes)
+    791201,  # order Collemopsidiales (Dothideomycetes)
+    118252,  # genus Lichenomphalia (basidiolichen)
+    175541,  # genus Multiclavula (basidiolichen)
+    128050,  # genus Dictyonema (basidiolichen)
+}
+# Some lichen genera are only placed at "Fungi" or "Ascomycota" level on iNat
+# (e.g. Lepraria). Add names here if they show up as Fungi by mistake.
+LICHEN_GENERA_BY_NAME = {"Lepraria", "Leprocaulon", "Lichenothelia"}
+
+ICONIC_CAT = {
+    "Insecta": "Insects", "Arachnida": "Spiders", "Aves": "Birds",
+    "Plantae": "Plants", "Mollusca": "Molluscs", "Amphibia": "Amphibians",
+    "Reptilia": "Reptiles", "Mammalia": "Mammals", "Protozoa": "Slime molds",
+}
+CAT_ORDER = ["Fungi", "Lichen", "Slime molds", "Insects", "Spiders", "Birds",
+             "Plants", "Molluscs", "Amphibians", "Reptiles", "Mammals", "Other"]
+MYXO = 47684  # class Myxomycetes
+FALLBACK_N = 60
+# Camera makes that are NOT portfolio material (case-insensitive substring match).
+EXCLUDED_MAKES = ("apple", "olympus", "om digital")
+
+
+def select_from_cameras():
+    """data/cameras.json: {"<observation id>": {"make": "...", "model": "..."}} (see scripts/harvest_cameras.js)."""
+    p = os.path.join(DATA, "cameras.json")
+    if not os.path.exists(p):
+        return set()
+    cams = json.load(open(p))
+    ids = set()
+    for oid, c in cams.items():
+        make = ((c.get("make") or "") + " " + (c.get("model") or "")).lower().strip()
+        if make and not any(x in make for x in EXCLUDED_MAKES):
+            ids.add(int(oid))
+    return ids
+
+
+def get(url, tries=5):
+    for i in range(tries):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": UA})
+            with urllib.request.urlopen(req, timeout=60) as r:
+                return json.load(r)
+        except Exception as e:  # noqa
+            wait = 2 ** i
+            print(f"  retry {i+1} after error {e} ({wait}s)", file=sys.stderr)
+            time.sleep(wait)
+    raise SystemExit("iNaturalist API unreachable")
+
+
+def fetch_all(locale):
+    out, id_above = [], 0
+    while True:
+        q = urllib.parse.urlencode({
+            "user_login": USER, "photos": "true", "per_page": 200,
+            "order_by": "id", "order": "asc", "locale": locale, "id_above": id_above,
+        })
+        res = get(f"{API}?{q}")["results"]
+        if not res:
+            return out
+        out += res
+        id_above = res[-1]["id"]
+        print(f"  {locale}: {len(out)}", file=sys.stderr)
+        time.sleep(0.6)
+
+
+def load_ids(name):
+    p = os.path.join(DATA, name)
+    if not os.path.exists(p):
+        return set()
+    with open(p) as f:
+        d = json.load(f)
+    return set(int(x) for x in (d if isinstance(d, list) else d.get("ids", [])))
+
+
+def categorize(o):
+    t = o["taxon"]
+    tags = [s.lower() for s in (o.get("tags") or [])]
+    anc = set(t.get("ancestor_ids") or []) | {t["id"]}
+    if "nolichen" in tags:
+        return "Fungi"
+    if "lichen" in tags or "lišajník" in tags or "lisajnik" in tags:
+        return "Lichen"
+    if anc & LICHEN_TAXA or t["name"].split(" ")[0] in LICHEN_GENERA_BY_NAME:
+        return "Lichen"
+    iconic = t.get("iconic_taxon_name")
+    if iconic == "Fungi":
+        return "Fungi"
+    if MYXO in anc or iconic == "Protozoa" or any(("slime" in s or "slizovk" in s or "myxo" in s) for s in tags):
+        return "Slime molds"
+    return ICONIC_CAT.get(iconic, "Other")
+
+
+def photo_entry(p):
+    url = p["url"]  # .../photos/<id>/square.jpg
+    base, fname = url.rsplit("/", 1)
+    ext = fname.split(".")[-1]
+    dims = p.get("original_dimensions") or {}
+    return {"id": p["id"], "base": base, "ext": ext, "w": dims.get("width"), "h": dims.get("height")}
+
+
+def main():
+    cache = None
+    if "--cache" in sys.argv:
+        cache = sys.argv[sys.argv.index("--cache") + 1]
+    if cache and os.path.exists(os.path.join(cache, "obs_en.json")):
+        en = json.load(open(os.path.join(cache, "obs_en.json")))
+        sk = json.load(open(os.path.join(cache, "obs_sk.json")))
+    else:
+        print("fetching observations…", file=sys.stderr)
+        en, sk = fetch_all("en"), fetch_all("sk")
+        if cache:
+            os.makedirs(cache, exist_ok=True)
+            json.dump(en, open(os.path.join(cache, "obs_en.json"), "w"))
+            json.dump(sk, open(os.path.join(cache, "obs_sk.json"), "w"))
+
+    sk_names = {o["id"]: (o.get("taxon") or {}).get("preferred_common_name") or "" for o in sk}
+    selection, exclude = load_ids("selection.json"), load_ids("exclude.json")
+    selection |= select_from_cameras()
+    usable = [o for o in en if o.get("taxon") and o.get("photos")]
+    all_count = len(usable)
+    is_tagged = lambda o: TAG in [s.lower() for s in (o.get("tags") or [])]
+    chosen = [o for o in usable if o["id"] not in exclude and (is_tagged(o) or o["id"] in selection)]
+    fallback = False
+    if not chosen:
+        # Nothing selected yet: preview the most-faved research-grade observations.
+        fallback = True
+        chosen = sorted((o for o in usable if o.get("quality_grade") == "research"),
+                        key=lambda o: (o.get("faves_count", 0), o["id"]), reverse=True)[:FALLBACK_N]
+    items = []
+    for o in chosen:
+        tagged = is_tagged(o)
+        t = o["taxon"]
+        en_name = t.get("preferred_common_name") or ""
+        sk_name = sk_names.get(o["id"], "")
+        items.append({
+            "id": o["id"],
+            "cat": categorize(o),
+            "photos": [photo_entry(p) for p in o["photos"]],
+            "latin": t["name"],
+            "rank": t.get("rank"),
+            "en": en_name,
+            "sk": sk_name if sk_name != en_name else "",
+            "place": o.get("place_guess") or "",
+            "date": o.get("observed_on") or "",
+            "grade": o.get("quality_grade"),
+            "faves": o.get("faves_count", 0),
+            "tagged": tagged,
+        })
+    # newest first
+    items.sort(key=lambda x: (x["date"], x["id"]), reverse=True)
+    counts = {}
+    for it in items:
+        counts[it["cat"]] = counts.get(it["cat"], 0) + 1
+    index = {
+        "generated": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "user": USER, "tag": TAG,
+        "total_observations": all_count,
+        "fallback": fallback,
+        "count": len(items),
+        "categories": [{"name": c, "count": counts[c]} for c in CAT_ORDER if counts.get(c)],
+        "items": items,
+    }
+    os.makedirs(DATA, exist_ok=True)
+    with open(os.path.join(DATA, "index.json"), "w") as f:
+        json.dump(index, f, ensure_ascii=False, separators=(",", ":"))
+    print(f"wrote {len(items)} items ({counts}) of {all_count} observations", file=sys.stderr)
+
+
+if __name__ == "__main__":
+    main()
