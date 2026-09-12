@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Jonáš Gruska — Nature photography</title>
-<meta name="description" content="Photographs of fungi, lichens, slime molds and small animals, mostly from Slovakia. All observations are documented on iNaturalist.">
+<meta name="description" content="Photographs of fungi, lichens, slime molds and small animals from around the world by Jonáš Gruska. Every observation is documented on iNaturalist.">
 <link rel="preconnect" href="https://inaturalist-open-data.s3.amazonaws.com" crossorigin>
 <link rel="dns-prefetch" href="https://inaturalist-open-data.s3.amazonaws.com">
 <style>
@@ -127,7 +127,8 @@
 const CONFIG = {
   ownerName: 'Jonáš Gruska',
   subtitle: '(Mostly) lichen photography',
-  aboutText: 'Photographs of fungi, lichens, slime molds and small animals from all around the world. All photos are mine, from observations that are documented on iNaturalist.',
+  // HTML allowed (links). Keep it to <a>, <b>, <i>, <br>.
+  aboutHtml: 'My name is Jonáš. For over seven years I\'ve been photographing fungi, lichens, slime molds and small animals around the world. I specialize in lichens and have published <a href="https://jonasgru.sk/mycology" target="_blank" rel="noopener">two books</a> about them, featuring many of these photographs. Every photo here is my own and is <a href="mailto:jonas@lom.audio">available on request</a>. More about my mycological and lichenological work is on <a href="https://jonasgru.sk/mycology" target="_blank" rel="noopener">my main site</a>. For an unfiltered list of my observations, see my <a href="https://www.inaturalist.org/people/jonasgruska" target="_blank" rel="noopener">iNaturalist profile</a>.',
   email: 'jonas@lom.audio',
   equipment: [
     'Sony α7R V',
@@ -320,7 +321,7 @@ function setView(view) {
 // ---- wiring ------------------------------------------------------------
 $('ownerName').textContent = CONFIG.ownerName;
 $('subtitle').textContent = CONFIG.subtitle;
-$('aboutText').textContent = CONFIG.aboutText;
+$('aboutText').innerHTML = CONFIG.aboutHtml;
 for (const e of CONFIG.equipment || []) { const li = document.createElement('li'); li.textContent = e; $('equipment').appendChild(li); }
 $('mail').textContent = CONFIG.email; $('mail').href = 'mailto:' + CONFIG.email;
 $('inatLink').href = `https://www.inaturalist.org/people/${CONFIG.inatUser}`;
