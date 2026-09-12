@@ -8,37 +8,40 @@
 <link rel="preconnect" href="https://inaturalist-open-data.s3.amazonaws.com" crossorigin>
 <link rel="dns-prefetch" href="https://inaturalist-open-data.s3.amazonaws.com">
 <style>
-  html,body{margin:0;height:100%;background:#fff;color:#111;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased}
-  a{color:#111}a:hover{color:#777}
-  button{font-family:inherit;font-size:13px;color:#111;background:#fff;border:0;cursor:pointer;padding:0;text-align:left}
-  button:hover{background:#f2f2f2}
-  button.on,button.on:hover{background:#111;color:#fff}
+  :root{--bg:var(--bg);--fg:var(--fg);--muted:var(--muted);--hover:var(--hover);color-scheme:light}
+  :root[data-theme="dark"]{--bg:var(--fg);--fg:#eee;--muted:#8a8a8a;--hover:#222;color-scheme:dark}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:var(--fg);--fg:#eee;--muted:#8a8a8a;--hover:#222;color-scheme:dark}}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased}
+  a{color:var(--fg)}a:hover{color:var(--muted)}
+  button{font-family:inherit;font-size:13px;color:var(--fg);background:var(--bg);border:0;cursor:pointer;padding:0;text-align:left}
+  button:hover{background:var(--hover)}
+  button.on,button.on:hover{background:var(--fg);color:var(--bg)}
   @keyframes breathe{0%,100%{opacity:.3}50%{opacity:1}}
 
-  #app{position:fixed;inset:0;display:grid;grid-template-rows:auto minmax(0,1fr) auto;background:#fff}
-  header{display:grid;grid-template-columns:minmax(160px,auto) 1fr auto;gap:1px;background:#111;border-bottom:1px solid #111}
-  .brand{display:grid;grid-template-rows:1fr auto;gap:1px;background:#111}
+  #app{position:fixed;inset:0;display:grid;grid-template-rows:auto minmax(0,1fr) auto;background:var(--bg)}
+  header{display:grid;grid-template-columns:minmax(160px,auto) 1fr auto;gap:1px;background:var(--fg);border-bottom:1px solid var(--fg)}
+  .brand{display:grid;grid-template-rows:1fr auto;gap:1px;background:var(--fg)}
   .brand .name{display:flex;flex-direction:column;justify-content:center;align-items:flex-start;padding:6px 16px;white-space:nowrap;line-height:1.2}
   .brand .name b{font-size:14px;font-weight:700;letter-spacing:.02em}
-  .brand .name span{font-size:11px;color:#777;font-style:italic;margin-top:2px}
+  .brand .name span{font-size:11px;color:var(--muted);font-style:italic;margin-top:2px}
   .brand .name.on span{color:#aaa}
-  .brand .pages{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#111}
+  .brand .pages{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--fg)}
   .brand .pages button{height:26px;padding:0 16px;font-size:12px}
-  nav{display:flex;flex-wrap:wrap;background:#fff;align-content:stretch;overflow:hidden;margin:0 -1px -1px 0}
-  nav button{min-height:34px;padding:0 16px;box-shadow:0 0 0 1px #111;margin:0 1px 1px 0;flex:1 0 auto;justify-content:center;display:flex;align-items:center;gap:8px}
+  nav{display:flex;flex-wrap:wrap;background:var(--bg);align-content:stretch;overflow:hidden;margin:0 -1px -1px 0}
+  nav button{min-height:34px;padding:0 16px;box-shadow:0 0 0 1px var(--fg);margin:0 1px 1px 0;flex:1 0 auto;justify-content:center;display:flex;align-items:center;gap:8px}
   nav button small{font-size:10px;opacity:.55;font-variant-numeric:tabular-nums}
-  .tools{display:flex;gap:1px;background:#111;align-items:stretch}
-  .tools .counter{min-height:34px;padding:0 16px;display:flex;align-items:center;gap:12px;background:#fff;font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .tools{display:flex;gap:1px;background:var(--fg);align-items:stretch}
+  .tools .counter{min-height:34px;padding:0 16px;display:flex;align-items:center;gap:12px;background:var(--bg);font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
   .tools .counter:empty{display:none}
-  .tools .counter button{width:22px;height:22px;border:1px solid #111;display:grid;place-items:center;font-size:9px}
-  .tools .counter button:hover{background:#111;color:#fff}
+  .tools .counter button{width:22px;height:22px;border:1px solid var(--fg);display:grid;place-items:center;font-size:9px}
+  .tools .counter button:hover{background:var(--fg);color:var(--bg)}
   .tools > button{min-height:34px;padding:0 16px}
 
   main{position:relative;min-height:0;overflow:hidden}
-  .msg{position:absolute;inset:0;display:grid;place-items:center;padding:40px;text-align:center;font-size:13px;color:#777;line-height:1.6}
+  .msg{position:absolute;inset:0;display:grid;place-items:center;padding:40px;text-align:center;font-size:13px;color:var(--muted);line-height:1.6}
   .msg.loading{animation:breathe 2.4s ease-in-out infinite;text-transform:uppercase;letter-spacing:.08em;font-size:12px}
-  .msg b{color:#111}
-  #stage{position:absolute;inset:0;overflow:hidden;background:#fff}
+  .msg b{color:var(--fg)}
+  #stage{position:absolute;inset:0;overflow:hidden;background:var(--bg)}
   .layer{position:absolute;inset:0;transition:opacity 1.2s ease}
   .layer.instant{transition:none}
   .layer.out{opacity:0}
@@ -50,19 +53,19 @@
   .page{position:absolute;inset:0;overflow-y:auto;padding:48px 16px;box-sizing:border-box}
   .page .txt{max-width:560px;font-size:16px;line-height:1.55;white-space:pre-line}
   .page .eq{max-width:560px;margin-top:32px}
-  .page .eq label{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:#777;margin-bottom:6px}
+  .page .eq label{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:6px}
   .page .eq ul{list-style:none;margin:0;padding:0;font-size:16px;line-height:1.55}
   .page .links{max-width:560px;font-size:16px;line-height:1.55;display:grid;gap:12px}
   .page a{text-decoration:underline;text-underline-offset:3px}
   #grid{position:absolute;inset:0;overflow-y:auto}
-  #grid .cells{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:1px;background:#111;border-bottom:1px solid #111}
+  #grid .cells{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:1px;background:var(--fg);border-bottom:1px solid var(--fg)}
   #grid button{position:relative;aspect-ratio:1;overflow:hidden;display:block}
   #grid img{width:100%;height:100%;object-fit:cover;display:block}
-  #grid span{position:absolute;left:0;right:0;bottom:0;padding:8px 10px;background:#fff;border-top:1px solid #111;font-size:11px;font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #grid span{position:absolute;left:0;right:0;bottom:0;padding:8px 10px;background:var(--bg);border-top:1px solid var(--fg);font-size:11px;font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-  footer{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;border-top:1px solid #111;background:#111}
-  footer div{padding:10px 16px;min-width:0;background:#fff}
-  footer label{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:#777;margin-bottom:4px}
+  footer{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;border-top:1px solid var(--fg);background:var(--fg)}
+  footer div{padding:10px 16px;min-width:0;background:var(--bg)}
+  footer label{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:4px}
   footer p{margin:0;font-size:14px;line-height:1.3}
   footer p.i{font-style:italic}
   footer p.n{font-variant-numeric:tabular-nums}
@@ -92,6 +95,7 @@
       <div class="counter" id="counter"></div>
       <button id="btnSlides">Slideshow</button>
       <button id="btnGrid">Grid</button>
+      <button id="btnTheme" aria-label="Toggle dark mode" title="Dark / light" style="padding:0 14px;font-size:15px"></button>
     </div>
   </header>
 
@@ -128,14 +132,16 @@ const CONFIG = {
   ownerName: 'Jonáš Gruska',
   subtitle: '(mostly) lichen photography',
   // HTML allowed (links). Keep it to <a>, <b>, <i>, <br>.
-  aboutHtml: 'My name is Jonáš. For over seven years I\'ve been photographing fungi, lichens, slime molds and small animals around the world. I specialize in lichens and have published <a href="https://jonasgru.sk/mycology" target="_blank" rel="noopener">two books</a> about them, featuring many of these photographs. Every photo here is my own and is <a href="mailto:jonas@lom.audio">available on request</a>. More about my mycological and lichenological work is on <a href="https://jonasgru.sk/mycology" target="_blank" rel="noopener">my main site</a>. For an unfiltered list of my observations, see my <a href="https://www.inaturalist.org/people/jonasgruska" target="_blank" rel="noopener">iNaturalist profile</a>.',
-  email: 'jonas@lom.audio',
+  aboutHtml: 'My name is Jonáš. For over seven years I\'ve been photographing fungi, lichens, slime molds and small animals around the world. I specialize in lichens and have published <a href="https://jonasgru.sk/mycology" target="_blank" rel="noopener">two books</a> about them, featuring many of these photographs. Every photo here is my own and is <a href="#" data-mail>available on request</a>. More about my mycological and lichenological work is on <a href="https://jonasgru.sk/mycology" target="_blank" rel="noopener">my main site</a>. For an unfiltered list of my observations, see my <a href="https://www.inaturalist.org/people/jonasgruska" target="_blank" rel="noopener">iNaturalist profile</a>.',
+  // e-mail is stored base64-encoded and assembled at runtime, so it never appears in the page source
+  emailB64: 'am9uYXNAbG9tLmF1ZGlv',
   equipment: [
     'Sony α7R V',
     'Sony FE 50mm F2.8 Macro',
     'Sony FE 90mm F2.8 Macro G OSS',
     'Sony FE 100mm F2.8 Macro GM OSS',
     'Sony FE 70-200mm F4 Macro G OSS II',
+    'Sony FE 16-35mm F2.8 GM II',
     'Sony FE 1.4x and 2.0x teleconverters',
     'Godox V1 Pro flash with Pope shield diffuser',
     'DIY custom focus stacking jig',
@@ -319,11 +325,28 @@ function setView(view) {
 }
 
 // ---- wiring ------------------------------------------------------------
+
+// ---- theme (follows the OS unless the visitor picks one) ---------------
+const mq = window.matchMedia('(prefers-color-scheme: dark)');
+function currentTheme() { return document.documentElement.dataset.theme || (mq.matches ? 'dark' : 'light'); }
+function applyTheme() { $('btnTheme').textContent = currentTheme() === 'dark' ? '☼' : '☾'; }
+function toggleTheme() {
+  const next = currentTheme() === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem('theme', next); } catch (e) {}
+  applyTheme();
+}
+try { const t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+mq.addEventListener('change', applyTheme);
+$('btnTheme').onclick = toggleTheme;
+applyTheme();
 $('ownerName').textContent = CONFIG.ownerName;
 $('subtitle').textContent = CONFIG.subtitle;
 $('aboutText').innerHTML = CONFIG.aboutHtml;
 for (const e of CONFIG.equipment || []) { const li = document.createElement('li'); li.textContent = e; $('equipment').appendChild(li); }
-$('mail').textContent = CONFIG.email; $('mail').href = 'mailto:' + CONFIG.email;
+const email = atob(CONFIG.emailB64);
+$('mail').textContent = email;
+for (const el of [$('mail'), ...document.querySelectorAll('[data-mail]')]) el.href = 'mailto:' + email;
 $('inatLink').href = `https://www.inaturalist.org/people/${CONFIG.inatUser}`;
 $('btnHome').onclick = () => setView('slides');
 $('btnSlides').onclick = () => setView('slides');
