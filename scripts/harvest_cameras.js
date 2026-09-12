@@ -4,44 +4,65 @@
 // which sits behind Cloudflare. So this runs *inside your browser*:
 //   1. Open https://www.inaturalist.org in Chrome/Safari (any page, logged in or not).
 //   2. Open DevTools → Console, paste this whole file, press Enter.
-//   3. Wait (≈2 850 photos, a few minutes). A file "cameras.json" is downloaded.
-//   4. Save it as data/cameras.json in the repo and run scripts/build_index.py.
+//   3. Wait. Photo pages are rate-limited, so this goes one request at a time
+//      (~30–50 min for ~2 850 photos). Progress is saved in localStorage, so if
+//      the tab is closed or the script is stopped, paste it again and it resumes.
+//   4. When finished, a file "cameras.json" is downloaded. Save it as
+//      data/cameras.json in the repo and run scripts/build_index.py.
+// To start over from scratch: localStorage.removeItem('inat_cameras')
 (async () => {
   const USER = 'jonasgruska';
-  const CONCURRENCY = 6;
-  const out = {};
+  const KEY = 'inat_cameras';
+  let delay = 700;                 // ms between photo-page requests (adapts to 429s)
+  const MIN_DELAY = 500, MAX_DELAY = 120000;
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+  const out = JSON.parse(localStorage.getItem(KEY) || '{}');
+  const save = () => localStorage.setItem(KEY, JSON.stringify(out));
 
   // 1. list observations (first photo of each)
   const obs = []; let idAbove = 0;
   while (true) {
     const r = await fetch(`https://api.inaturalist.org/v1/observations?user_login=${USER}&photos=true&per_page=200&order_by=id&order=asc&id_above=${idAbove}&fields=photos.id`);
+    if (r.status === 429) { console.warn('API 429, waiting 30 s'); await sleep(30000); continue; }
     const res = (await r.json()).results;
     if (!res.length) break;
     for (const o of res) obs.push({ id: o.id, photo: o.photos[0].id });
     idAbove = res[res.length - 1].id;
-    console.log('listed', obs.length);
-    await sleep(400);
+    await sleep(500);
   }
+  const todo = obs.filter(o => !(out[o.id] && (out[o.id].make !== undefined)));
+  console.log(`observations: ${obs.length}, already done: ${obs.length - todo.length}, to fetch: ${todo.length}`);
 
-  // 2. read Make / Model from each photo page's metadata table
+  // 2. read Make / Model from each photo page's metadata table, one at a time
   const grab = (html, key) => {
     const m = html.match(new RegExp(`<t[hd][^>]*>\\s*${key}\\s*<\\/t[hd]>\\s*<td[^>]*>([^<]*)<`, 'i'));
     return m ? m[1].trim() : '';
   };
-  let done = 0;
-  const queue = obs.slice();
-  await Promise.all(Array.from({ length: CONCURRENCY }, async () => {
-    while (queue.length) {
-      const o = queue.shift();
-      try {
-        const html = await (await fetch(`/photos/${o.photo}`, { credentials: 'include' })).text();
-        out[o.id] = { photo: o.photo, make: grab(html, 'Make'), model: grab(html, 'Model') };
-      } catch (e) { out[o.id] = { photo: o.photo, error: String(e) }; }
-      if (++done % 50 === 0) console.log('photos', done, '/', obs.length);
-      await sleep(150);
+  let done = 0, okStreak = 0;
+  for (const o of todo) {
+    for (let attempt = 0; ; attempt++) {
+      let r;
+      try { r = await fetch(`/photos/${o.photo}`, { credentials: 'include' }); }
+      catch (e) { console.warn('network error, retrying in 10 s', e); await sleep(10000); continue; }
+      if (r.status === 429 || r.status === 503) {
+        const ra = parseInt(r.headers.get('Retry-After') || '0', 10) * 1000;
+        delay = Math.min(MAX_DELAY, Math.max(ra, delay * 2));
+        okStreak = 0;
+        console.warn(`${r.status} on photo ${o.photo}; backing off, delay now ${delay} ms`);
+        await sleep(delay);
+        continue;
+      }
+      if (r.status !== 200) { out[o.id] = { photo: o.photo, make: '', model: '', status: r.status }; break; }
+      const html = await r.text();
+      if (/Just a moment|challenge-platform/.test(html)) { console.error('Cloudflare challenge served; open a photo page in this tab, pass the check, then re-run.'); save(); return; }
+      out[o.id] = { photo: o.photo, make: grab(html, 'Make'), model: grab(html, 'Model') };
+      if (++okStreak >= 20) { delay = Math.max(MIN_DELAY, Math.round(delay * 0.85)); okStreak = 0; }
+      break;
     }
-  }));
+    if (++done % 25 === 0) { save(); console.log(`photos ${done} / ${todo.length} (delay ${delay} ms)`); }
+    await sleep(delay);
+  }
+  save();
 
   // 3. download the result
   const blob = new Blob([JSON.stringify(out, null, 1)], { type: 'application/json' });
@@ -49,5 +70,6 @@
   document.body.appendChild(a); a.click(); a.remove();
   const makes = {}; for (const v of Object.values(out)) makes[v.make || '?'] = (makes[v.make || '?'] || 0) + 1;
   console.table(makes);
+  console.log('done — saved cameras.json; also available as window.__cameras');
   window.__cameras = out;
 })();
