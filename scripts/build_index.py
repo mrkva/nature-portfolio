@@ -13,7 +13,7 @@ ancestry (lichenized classes/orders/genera), so the Fungi filter never shows
 lichens and vice versa. Tags "lichen"/"lišajník" force Lichen; "nolichen"
 forces Fungi. Run with no network by passing --cache <dir> (dev only).
 """
-import json, os, sys, time, urllib.request, urllib.parse, datetime
+import json, os, re, sys, time, urllib.request, urllib.parse, datetime
 
 USER = os.environ.get("INAT_USER", "jonasgruska")
 TAG = os.environ.get("PORTFOLIO_TAG", "Portfolio").lower()
@@ -147,6 +147,17 @@ def categorize(o):
     return ICONIC_CAT.get(iconic, "Other")
 
 
+def clean_place(place):
+    """Drop a leading street address or plus code ("Jelenia 3138/10, 811 05 Bratislava, Slovakia"
+    -> "811 05 Bratislava, Slovakia"). iNaturalist's place_guess can be house-precise for
+    open-geoprivacy observations; the site only needs town-level detail."""
+    parts = [x.strip() for x in (place or "").split(",")]
+    street = re.compile(r"\d+/\d+|[^\W\d]\S*\s+\d+[a-zA-Z]?$|^[2-9CFGHJMPQRVWX]{4,8}\+[2-9CFGHJMPQRVWX]{2,}")
+    while len(parts) > 1 and street.search(parts[0]):
+        parts.pop(0)  # "Name 12", "Name 3138/10" or a plus code; "935 03 Town" is kept
+    return ", ".join(parts)
+
+
 def photo_entry(p):
     url = p["url"]  # .../photos/<id>/square.jpg
     base, fname = url.rsplit("/", 1)
@@ -210,7 +221,7 @@ def main():
             "rank": t.get("rank"),
             "en": en_name,
             "sk": sk_name if sk_name != en_name else "",
-            "place": o.get("place_guess") or "",
+            "place": clean_place(o.get("place_guess")),
             "date": o.get("observed_on") or "",
             "grade": o.get("quality_grade"),
             "faves": o.get("faves_count", 0),

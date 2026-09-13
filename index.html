@@ -55,9 +55,9 @@
   :root{--bg:#fff;--fg:#111;--muted:#777;--hover:#f2f2f2;color-scheme:light}
   :root[data-theme="dark"]{--bg:#111;--fg:#eee;--muted:#8a8a8a;--hover:#222;color-scheme:dark}
   @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111;--fg:#eee;--muted:#8a8a8a;--hover:#222;color-scheme:dark}}
-  html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased;touch-action:manipulation}
   a{color:var(--fg)}a:hover{color:var(--muted)}
-  button{font-family:inherit;font-size:13px;color:var(--fg);background:var(--bg);border:0;cursor:pointer;padding:0;text-align:left}
+  button{touch-action:manipulation;font-family:inherit;font-size:13px;color:var(--fg);background:var(--bg);border:0;cursor:pointer;padding:0;text-align:left}
   button:hover{background:var(--hover)}
   button.on,button.on:hover{background:var(--fg);color:var(--bg)}
   @keyframes breathe{0%,100%{opacity:.3}50%{opacity:1}}

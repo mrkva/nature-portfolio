@@ -1,7 +1,5 @@
 User-agent: *
 Allow: /
 Disallow: /data/
-Disallow: /scripts/
-Disallow: /archive/
 
 Sitemap: https://photos.jonasgru.sk/sitemap.xml

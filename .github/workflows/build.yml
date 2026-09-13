@@ -26,12 +26,18 @@ jobs:
           python-version: "3.12"
       - name: Build data/index.json from iNaturalist
         run: python3 scripts/build_index.py
+      - name: Assemble site (only what the browser needs)
+        run: |
+          mkdir -p _site/data
+          cp index.html robots.txt sitemap.xml google28868449777b28ca.html .nojekyll _site/
+          cp data/index.json _site/data/
+          cp -R img _site/img
       - uses: actions/configure-pages@v5
         with:
           enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: _site
   deploy:
     needs: build
     runs-on: ubuntu-latest

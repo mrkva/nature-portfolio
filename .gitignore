@@ -3,5 +3,7 @@ __pycache__/
 .cache/
 data/index.json
 img/jg.jpeg
-data/recovery/photos/
+data/recovery/
 data/cameras*.json
+.claude/
+_site/
