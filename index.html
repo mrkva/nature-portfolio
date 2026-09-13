@@ -86,8 +86,9 @@
   .msg.loading{animation:breathe 2.4s ease-in-out infinite;text-transform:uppercase;letter-spacing:.08em;font-size:12px}
   .msg b{color:var(--fg)}
   #stage{position:absolute;inset:0;overflow:hidden;background:var(--bg)}
-  .layer{position:absolute;inset:0;transition:opacity 1.2s ease}
+  .layer{position:absolute;inset:0;opacity:0;transition:opacity 1.2s ease}
   .layer.instant{transition:none}
+  .layer.in{opacity:1}
   .layer.out{opacity:0}
   .layer .bg{position:absolute;inset:-40px;width:calc(100% + 80px);height:calc(100% + 80px);object-fit:cover;filter:blur(36px) brightness(.72) saturate(.8)}
   .layer .fg{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center}
@@ -353,7 +354,12 @@ function show(idx, instant) {
   const o = list[i];
   const url = stageUrl(o);
 
-  for (const l of stage.querySelectorAll('.layer:not(.out)')) { l.classList.add('out'); setTimeout(() => l.remove(), 1400); }
+  // the previous photo stays until the next one has actually loaded, then both crossfade
+  const reveal = () => {
+    for (const l of stage.querySelectorAll('.layer.in:not(.out)')) { l.classList.add('out'); setTimeout(() => l.remove(), 1400); }
+    for (const l of stage.querySelectorAll('.layer:not(.in)')) if (l !== layer) l.remove();   // abandoned, never shown
+    requestAnimationFrame(() => layer.classList.add('in'));
+  };
   const layer = document.createElement('div');
   layer.className = 'layer' + (instant ? ' instant' : '');
   const bg = document.createElement('img'); bg.className = 'bg'; bg.alt = ''; bg.setAttribute('aria-hidden', 'true');
@@ -373,6 +379,7 @@ function show(idx, instant) {
   const arrived = () => {
     if (!isCurrent()) return;
     clearTimeout(state.spinTimer); spinner.hidden = true;
+    reveal();
     preloadAround(list, i);                           // neighbours, once we're not competing for bandwidth
     if (wantsHires()) {                               // then quietly upgrade this slide to the original
       const hi = new Image(); hi.decoding = 'async';
@@ -385,7 +392,7 @@ function show(idx, instant) {
     if (!isCurrent()) return;
     if (tries++ < 2) { setTimeout(() => { fg.src = bg.src = url + '?retry=' + tries; }, 1500 * tries); return; }
     clearTimeout(state.spinTimer); spinner.hidden = false; spinner.classList.add('err'); spinner.textContent = 'Could not load photo';
-    preloadAround(list, i);
+    reveal(); preloadAround(list, i);
   };
   if (fg.complete && fg.naturalWidth) arrived(); else fg.onload = arrived;
 
