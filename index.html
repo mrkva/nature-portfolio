@@ -286,6 +286,9 @@ async function load() {
     // one entry per PHOTO: an observation with several photos becomes consecutive slides
     // that share its details; `photos[0]` is that entry's photo so the rest of the code is unchanged
     state.items = idx.items.flatMap(o => o.photos.map((p, k) => ({ ...o, photos: [p], k, n: o.photos.length })));
+    // the slideshow plays in a fresh random order on every visit; the grid keeps the chronological order
+    state.order = state.items.slice();
+    for (let i = state.order.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [state.order[i], state.order[j]] = [state.order[j], state.order[i]]; }
     const counts = {}; for (const it of state.items) counts[it.cat] = (counts[it.cat] || 0) + 1;
     state.cats = idx.categories.map(c => ({ name: c.name, count: counts[c.name] || 0 }));
     state.fallback = !!idx.fallback;
@@ -302,7 +305,7 @@ async function load() {
   setView(state.view);
 }
 
-const visible = () => state.items.filter(o => (state.cat === 'All' || o.cat === state.cat) && !curation.hide.has(o.photos[0].id) && !curation.remove.has(o.id));
+const visible = () => (state.view === 'grid' ? state.items : (state.order || state.items)).filter(o => (state.cat === 'All' || o.cat === state.cat) && !curation.hide.has(o.photos[0].id) && !curation.remove.has(o.id));
 
 // ---- routing (shareable URLs) -----------------------------------------
 function readHash() {
@@ -438,7 +441,7 @@ function renderGrid() {
       const r = document.createElement('span'); r.textContent = 'remove obs'; r.onclick = (e) => { e.stopPropagation(); curFlag('remove', o); };
       c.append(h, r); b.appendChild(c);
     }
-    b.onclick = () => { setView('slides'); show(i, true); };
+    b.onclick = () => { setView('slides'); show(Math.max(0, visible().findIndex(x => x.id === o.id && x.k === o.k)), true); };
     cells.appendChild(b);
   });
 }
