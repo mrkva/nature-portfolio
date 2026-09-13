@@ -7,7 +7,7 @@ Hidden photos ("hide") need no iNaturalist change — the build strips them.
   INAT_API_TOKEN='<token from https://www.inaturalist.org/users/api_token>' python3 scripts/apply_curation.py --dry-run
   INAT_API_TOKEN='…' python3 scripts/apply_curation.py
 """
-import json, os, sys, time, urllib.request
+import json, os, sys, time, urllib.request, urllib.parse
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build_index as bi  # noqa: E402
@@ -30,8 +30,27 @@ def main():
     if not TOKEN and not DRY:
         raise SystemExit("Set INAT_API_TOKEN (from https://www.inaturalist.org/users/api_token)")
     cur = json.load(open(os.path.join(bi.DATA, "curation.json")))
-    ids = sorted({int(x) for x in cur.get("remove", [])})
-    print(f"{len(ids)} observations flagged for removal, {len(cur.get('hide', []))} photos hidden (build-only)")
+    ids = {int(x) for x in cur.get("remove", [])}
+    hidden = {int(x) for x in cur.get("hide", [])}
+    # an observation whose every photo is hidden counts as removed
+    if hidden:
+        q = "https://api.inaturalist.org/v1/observations?user_login=%s&q=%s&search_on=tags&per_page=200&order_by=id&order=asc&id_above=%d"
+        id_above, fully_hidden = 0, set()
+        while True:
+            res = api("GET", q % (bi.USER, urllib.parse.quote(TAG), id_above))["results"]
+            if not res:
+                break
+            for o in res:
+                pids = [p["id"] for p in (o.get("photos") or [])]
+                if pids and all(p in hidden for p in pids):
+                    fully_hidden.add(o["id"])
+            id_above = res[-1]["id"]
+            time.sleep(0.5)
+        if fully_hidden:
+            print(f"{len(fully_hidden)} observations have every photo hidden -> treated as removed")
+        ids |= fully_hidden
+    ids = sorted(ids)
+    print(f"{len(ids)} observations to untag, {len(hidden)} photos hidden (build-only)")
     changed = skipped = failed = 0
     for i, oid in enumerate(ids, 1):
         try:

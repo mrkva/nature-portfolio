@@ -473,7 +473,17 @@ function curFlag(kind, item) {
   if (!item) return;
   const id = kind === 'hide' ? item.photos[0].id : item.id;
   if (curation[kind].has(id)) return;
-  curation[kind].add(id); curation.log.push([kind, id]); curSave();
+  curation[kind].add(id); curation.log.push([kind, id]);
+  // hiding every photo of an observation = removing the observation (its Portfolio tag gets stripped)
+  if (kind === 'hide') {
+    const mine = state.items.filter(x => x.id === item.id).map(x => x.photos[0].id);
+    if (mine.every(pid => curation.hide.has(pid))) {
+      mine.forEach(pid => curation.hide.delete(pid));
+      curation.log = curation.log.filter(([k, v]) => !(k === 'hide' && mine.includes(v)));
+      curation.remove.add(item.id); curation.log.push(['remove', item.id]);
+    }
+  }
+  curSave();
   if (state.view === 'slides') { const list = visible(); show(Math.min(state.idx, Math.max(0, list.length - 1)), true); }
   else if (state.view === 'grid') renderGrid();
 }
