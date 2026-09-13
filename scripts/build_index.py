@@ -42,12 +42,9 @@ LICHEN_TAXA = {
 LICHEN_GENERA_BY_NAME = {"Lepraria", "Leprocaulon", "Lichenothelia"}
 
 ICONIC_CAT = {
-    "Insecta": "Insects", "Arachnida": "Spiders", "Aves": "Birds",
-    "Plantae": "Plants", "Mollusca": "Molluscs", "Amphibia": "Amphibians",
-    "Reptilia": "Reptiles", "Mammalia": "Mammals", "Protozoa": "Slime molds",
-}
-CAT_ORDER = ["Fungi", "Lichen", "Slime molds", "Insects", "Spiders", "Birds",
-             "Plants", "Molluscs", "Amphibians", "Reptiles", "Mammals", "Other"]
+    "Insecta": "Insects", "Arachnida": "Spiders", "Aves": "Birds", "Protozoa": "Slime molds",
+}   # everything else (plants, molluscs, reptiles, amphibians, mammals, …) is "Other"
+CAT_ORDER = ["Fungi", "Lichen", "Slime molds", "Insects", "Spiders", "Birds", "Other"]
 MYXO = 47684  # class Myxomycetes
 FALLBACK_N = 60
 # Camera makes that are NOT portfolio material (case-insensitive substring match).
