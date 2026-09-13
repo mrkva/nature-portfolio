@@ -42,8 +42,9 @@ LICHEN_TAXA = {
 LICHEN_GENERA_BY_NAME = {"Lepraria", "Leprocaulon", "Lichenothelia"}
 
 ICONIC_CAT = {
-    "Insecta": "Insects", "Arachnida": "Spiders", "Aves": "Birds", "Protozoa": "Slime molds",
+    "Insecta": "Insects", "Aves": "Birds", "Protozoa": "Slime molds",
 }   # everything else (plants, molluscs, reptiles, amphibians, mammals, …) is "Other"
+ARANEAE = 47118  # order Araneae: "Spiders" means true spiders only, not mites/harvestmen (also Arachnida)
 CAT_ORDER = ["Fungi", "Lichen", "Slime molds", "Insects", "Spiders", "Birds", "Other"]
 MYXO = 47684  # class Myxomycetes
 FALLBACK_N = 60
@@ -139,6 +140,8 @@ def categorize(o):
     iconic = t.get("iconic_taxon_name")
     if iconic == "Fungi":
         return "Fungi"
+    if ARANEAE in anc:
+        return "Spiders"
     if MYXO in anc or iconic == "Protozoa" or any(("slime" in s or "slizovk" in s or "myxo" in s) for s in tags):
         return "Slime molds"
     return ICONIC_CAT.get(iconic, "Other")
