@@ -462,19 +462,25 @@ function setView(view) {
 // Decisions apply to your own view immediately, are kept in this browser, and
 // "Export" downloads data/curation.json for the repo (scripts/apply_curation.py
 // then removes the Portfolio tag on iNaturalist for the "remove" list).
-const curation = { hide: new Set(), remove: new Set(), log: [] };
+const curation = { hide: new Set(), remove: new Set(), log: [], published: { hide: new Set(), remove: new Set() } };
 const CUR_KEY = 'curation';
 // forget local flags that are already applied (their observation/photo is no longer in the index),
 // so a later export doesn't resurrect entries the apply script has pruned
 function curPrune() {
+  // entries from the published file are kept as they are (hidden photos are absent from the
+  // index precisely because the file hides them); only pending local flags are pruned
   const obsIds = new Set(state.items.map(x => x.id)), photoIds = new Set(state.items.map(x => x.photos[0].id));
-  for (const id of [...curation.remove]) if (!obsIds.has(id)) curation.remove.delete(id);
-  for (const id of [...curation.hide]) if (!photoIds.has(id)) curation.hide.delete(id);
+  for (const id of [...curation.remove]) if (!obsIds.has(id) && !curation.published.remove.has(id)) curation.remove.delete(id);
+  for (const id of [...curation.hide]) if (!photoIds.has(id) && !curation.published.hide.has(id)) curation.hide.delete(id);
   curation.log = curation.log.filter(([k, v]) => curation[k].has(v));
   curSave();
 }
 function curLoadLocal() { try { const d = JSON.parse(localStorage.getItem(CUR_KEY) || '{}'); (d.hide || []).forEach(x => curation.hide.add(x)); (d.remove || []).forEach(x => curation.remove.add(x)); } catch (e) {} }
-function curSave() { try { localStorage.setItem(CUR_KEY, JSON.stringify({ hide: [...curation.hide], remove: [...curation.remove] })); } catch (e) {} curRender(); }
+function curSave() {
+  const pending = { hide: [...curation.hide].filter(x => !curation.published.hide.has(x)), remove: [...curation.remove].filter(x => !curation.published.remove.has(x)) };
+  try { localStorage.setItem(CUR_KEY, JSON.stringify(pending)); } catch (e) {}
+  curRender();
+}
 function curRender() {
   $('curCount').textContent = `${curation.hide.size} hidden · ${curation.remove.size} removed`;
   renderCats();
@@ -512,7 +518,11 @@ async function curInit() {
   if (!on) return;
   document.documentElement.classList.add('curate');
   try { localStorage.setItem('curateMode', '1'); } catch (e) {}
-  try { const d = await (await fetch('data/curation.json', { cache: 'no-cache' })).json(); (d.hide || []).forEach(x => curation.hide.add(x)); (d.remove || []).forEach(x => curation.remove.add(x)); } catch (e) {}
+  try {
+    const d = await (await fetch('data/curation.json', { cache: 'no-cache' })).json();
+    (d.hide || []).forEach(x => { curation.hide.add(x); curation.published.hide.add(x); });
+    (d.remove || []).forEach(x => { curation.remove.add(x); curation.published.remove.add(x); });
+  } catch (e) {}
   curLoadLocal(); curRender();
 }
 $('curHide').onclick = () => curFlag('hide', visible()[state.idx]);
