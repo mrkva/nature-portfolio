@@ -358,7 +358,9 @@ function show(idx, instant) {
   const reveal = () => {
     for (const l of stage.querySelectorAll('.layer.in:not(.out)')) { l.classList.add('out'); setTimeout(() => l.remove(), 1400); }
     for (const l of stage.querySelectorAll('.layer:not(.in)')) if (l !== layer) l.remove();   // abandoned, never shown
-    requestAnimationFrame(() => layer.classList.add('in'));
+    void layer.offsetWidth;                 // force style computation so the opacity change transitions
+    layer.classList.add('in');
+    requestAnimationFrame(() => layer.classList.remove('instant'));   // an instant layer must still fade OUT later
   };
   const layer = document.createElement('div');
   layer.className = 'layer' + (instant ? ' instant' : '');
