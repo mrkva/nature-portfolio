@@ -7,6 +7,9 @@ Selection rules (union):
   * only with USE_CAMERAS=1: observations whose camera in data/cameras*.json is accepted
     (that list feeds scripts/tag_good_photos.py; the website itself follows the tags).
 Observation IDs listed in data/exclude.json are always dropped.
+data/curation.json (exported from the site's curate mode, ?curate) holds
+  {"remove": [observation ids], "hide": [photo ids]}: removed observations are
+  dropped, hidden photos are stripped from their observation.
 
 Categories are derived from taxonomy, with lichens split out of Fungi by
 ancestry (lichenized classes/orders/genera), so the Fungi filter never shows
@@ -183,6 +186,10 @@ def main():
 
     sk_names = {o["id"]: (o.get("taxon") or {}).get("preferred_common_name") or "" for o in sk}
     selection, exclude = load_ids("selection.json"), load_ids("exclude.json")
+    cur_p = os.path.join(DATA, "curation.json")
+    curation = json.load(open(cur_p)) if os.path.exists(cur_p) else {}
+    exclude |= {int(x) for x in curation.get("remove", [])}
+    hidden = {int(x) for x in curation.get("hide", [])}
     by_camera = select_from_cameras() if os.environ.get("USE_CAMERAS") == "1" else set()
     usable = [o for o in en if o.get("taxon") and o.get("photos")]
     all_count = len(usable)
@@ -209,6 +216,9 @@ def main():
                         key=lambda o: (o.get("faves_count", 0), o["id"]), reverse=True)[:FALLBACK_N]
     items = []
     for o in chosen:
+        o["photos"] = [p for p in o["photos"] if p["id"] not in hidden]
+        if not o["photos"]:
+            continue
         tagged = is_tagged(o)
         t = o["taxon"]
         en_name = t.get("preferred_common_name") or ""

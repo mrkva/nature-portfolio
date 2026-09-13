@@ -92,6 +92,18 @@
   .layer.out{opacity:0}
   .layer .bg{position:absolute;inset:-40px;width:calc(100% + 80px);height:calc(100% + 80px);object-fit:cover;filter:blur(36px) brightness(.72) saturate(.8)}
   .layer .fg{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center}
+  /* curate mode (open the site with ?curate) */
+  #curate{display:none;align-items:center;gap:10px;padding:0 12px;background:var(--bg);font-size:11px;white-space:nowrap}
+  html.curate #curate{display:flex}
+  #curate b{font-variant-numeric:tabular-nums}
+  #curate button{border:1px solid var(--fg);padding:3px 8px;font-size:11px}
+  #curTools{position:absolute;right:12px;bottom:12px;z-index:2;display:none;gap:1px;background:var(--fg)}
+  html.curate #curTools{display:flex}
+  #curTools button{padding:7px 10px;font-size:11px;border:0}
+  #grid .cur{position:absolute;top:0;right:0;display:none;gap:1px;background:var(--fg)}
+  html.curate #grid button:hover .cur{display:flex}
+  #grid .cur span{display:block;padding:6px 9px;font-size:11px;font-style:normal;background:var(--bg);color:var(--fg);position:static;border:0}
+  #grid .cur span:hover{background:var(--fg);color:var(--bg)}
   #spinner{position:absolute;left:12px;bottom:12px;z-index:2;padding:5px 8px;background:var(--bg);color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.1em;animation:breathe 1.6s ease-in-out infinite;pointer-events:none}
   #spinner.err{animation:none;color:var(--fg)}
   .hit{position:absolute;top:0;bottom:0;width:25%;background:transparent;z-index:1}
@@ -156,6 +168,7 @@
     <div class="tools">
       <div class="counter" id="counter"></div>
       <button id="btnSlides">Slideshow</button>
+      <div id="curate"><span>Curate</span><b id="curCount"></b><button id="curUndo" title="Undo last flag (z)">Undo</button><button id="curExport" title="Download curation.json">Export</button><button id="curExit">Exit</button></div>
       <button id="btnGrid">Grid</button>
       <button id="btnTheme" aria-label="Toggle dark mode" title="Dark / light" style="padding:0 14px;font-size:15px"></button>
     </div>
@@ -167,6 +180,7 @@
     <div id="slides" hidden>
       <div id="stage"></div>
       <div id="spinner" hidden>Loading</div>
+      <div id="curTools"><button id="curHide" title="Hide this photo (x)">Hide photo</button><button id="curRemove" title="Remove observation from portfolio (r)">Remove observation</button></div>
       <button class="hit" id="prev" aria-label="Previous"></button>
       <button class="hit" id="next" aria-label="Next"></button>
     </div>
@@ -287,7 +301,7 @@ async function load() {
   setView(state.view);
 }
 
-const visible = () => state.cat === 'All' ? state.items : state.items.filter(o => o.cat === state.cat);
+const visible = () => state.items.filter(o => (state.cat === 'All' || o.cat === state.cat) && !curation.hide.has(o.photos[0].id) && !curation.remove.has(o.id));
 
 // ---- routing (shareable URLs) -----------------------------------------
 function readHash() {
@@ -415,8 +429,14 @@ function renderGrid() {
   visible().forEach((o, i) => {
     const b = document.createElement('button');
     const im = document.createElement('img'); im.src = photoUrl(o.photos[0], 'large'); im.srcset = thumbSet(o); im.sizes = '(max-width:720px) 50vw, 25vw'; im.alt = altText(o); im.loading = 'lazy'; im.decoding = 'async';
-    const s = document.createElement('span'); s.textContent = o.latin;
+    const s = document.createElement('span'); s.textContent = o.n > 1 ? `${o.latin} · ${o.k + 1}/${o.n}` : o.latin;
     b.append(im, s);
+    if (document.documentElement.classList.contains('curate')) {
+      const c = document.createElement('div'); c.className = 'cur';
+      const h = document.createElement('span'); h.textContent = 'hide photo'; h.onclick = (e) => { e.stopPropagation(); curFlag('hide', o); };
+      const r = document.createElement('span'); r.textContent = 'remove obs'; r.onclick = (e) => { e.stopPropagation(); curFlag('remove', o); };
+      c.append(h, r); b.appendChild(c);
+    }
     b.onclick = () => { setView('slides'); show(i, true); };
     cells.appendChild(b);
   });
@@ -435,6 +455,51 @@ function setView(view) {
   if (view === 'grid') renderGrid();
   renderFooter(); writeHash(); arm();
 }
+
+// ---- curate mode -------------------------------------------------------
+// Open the site with ?curate to flag photos ("hide") and observations ("remove").
+// Decisions apply to your own view immediately, are kept in this browser, and
+// "Export" downloads data/curation.json for the repo (scripts/apply_curation.py
+// then removes the Portfolio tag on iNaturalist for the "remove" list).
+const curation = { hide: new Set(), remove: new Set(), log: [] };
+const CUR_KEY = 'curation';
+function curLoadLocal() { try { const d = JSON.parse(localStorage.getItem(CUR_KEY) || '{}'); (d.hide || []).forEach(x => curation.hide.add(x)); (d.remove || []).forEach(x => curation.remove.add(x)); } catch (e) {} }
+function curSave() { try { localStorage.setItem(CUR_KEY, JSON.stringify({ hide: [...curation.hide], remove: [...curation.remove] })); } catch (e) {} curRender(); }
+function curRender() {
+  $('curCount').textContent = `${curation.hide.size} hidden · ${curation.remove.size} removed`;
+  renderCats();
+}
+function curFlag(kind, item) {
+  if (!item) return;
+  const id = kind === 'hide' ? item.photos[0].id : item.id;
+  if (curation[kind].has(id)) return;
+  curation[kind].add(id); curation.log.push([kind, id]); curSave();
+  if (state.view === 'slides') { const list = visible(); show(Math.min(state.idx, Math.max(0, list.length - 1)), true); }
+  else if (state.view === 'grid') renderGrid();
+}
+function curUndo() {
+  const last = curation.log.pop(); if (!last) return;
+  curation[last[0]].delete(last[1]); curSave();
+  if (state.view === 'grid') renderGrid(); else show(state.idx, true);
+}
+function curExport() {
+  const data = { remove: [...curation.remove].sort((a, b) => a - b), hide: [...curation.hide].sort((a, b) => a - b) };
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' })), download: 'curation.json' });
+  document.body.appendChild(a); a.click(); a.remove();
+}
+async function curInit() {
+  const on = new URLSearchParams(location.search).has('curate') || localStorage.getItem('curateMode') === '1';
+  if (!on) return;
+  document.documentElement.classList.add('curate');
+  try { localStorage.setItem('curateMode', '1'); } catch (e) {}
+  try { const d = await (await fetch('data/curation.json', { cache: 'no-cache' })).json(); (d.hide || []).forEach(x => curation.hide.add(x)); (d.remove || []).forEach(x => curation.remove.add(x)); } catch (e) {}
+  curLoadLocal(); curRender();
+}
+$('curHide').onclick = () => curFlag('hide', visible()[state.idx]);
+$('curRemove').onclick = () => curFlag('remove', visible()[state.idx]);
+$('curUndo').onclick = curUndo;
+$('curExport').onclick = curExport;
+$('curExit').onclick = () => { try { localStorage.removeItem('curateMode'); } catch (e) {} location.href = location.pathname; };
 
 // ---- wiring ------------------------------------------------------------
 
@@ -466,6 +531,11 @@ $('fToggle').onclick = () => { const open = $('footer').classList.toggle('open')
 $('prev').onclick = () => step(-1);
 $('next').onclick = () => step(1);
 window.addEventListener('keydown', (e) => {
+  if (document.documentElement.classList.contains('curate') && state.view === 'slides') {
+    if (e.key === 'x') { curFlag('hide', visible()[state.idx]); return; }
+    if (e.key === 'r') { curFlag('remove', visible()[state.idx]); return; }
+    if (e.key === 'z') { curUndo(); return; }
+  }
   if (state.view !== 'slides') return;
   if (e.key === 'ArrowRight') step(1);
   else if (e.key === 'ArrowLeft') step(-1);
@@ -477,7 +547,7 @@ $('slides').addEventListener('touchstart', (e) => { tx = e.touches[0].clientX; }
 $('slides').addEventListener('touchend', (e) => { if (tx === null) return; const dx = e.changedTouches[0].clientX - tx; tx = null; if (Math.abs(dx) > 40) step(dx < 0 ? 1 : -1); });
 window.addEventListener('hashchange', () => { readHash(); renderCats(); setView(state.view); show(state.idx, true); });
 
-load();
+curInit().then(load);
 </script>
 </body>
 </html>

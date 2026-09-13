@@ -31,6 +31,7 @@ jobs:
           mkdir -p _site/data
           cp index.html robots.txt sitemap.xml google28868449777b28ca.html .nojekyll _site/
           cp data/index.json _site/data/
+          cp data/curation.json _site/data/ 2>/dev/null || echo '{"remove":[],"hide":[]}' > _site/data/curation.json
           cp -R img _site/img
       - uses: actions/configure-pages@v5
         with:
