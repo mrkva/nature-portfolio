@@ -12,6 +12,11 @@ Usage:
   3. INAT_API_TOKEN='<token>' python3 scripts/tag_good_photos.py            # apply
      Options: --limit N (only first N), --remove (strip the tag instead of adding it)
      MIN_LONG_EDGE=1500 relaxes the size filter.
+
+  By default only observations NEWER than the last real run are considered
+  (data/tag_state.json remembers the highest observation ID processed), so
+  observations you have untagged by hand on iNaturalist are never re-tagged.
+  --all considers every observation again (this WOULD re-tag curated-out ones).
 """
 import json, os, sys, time, urllib.request
 
@@ -22,6 +27,8 @@ TOKEN = os.environ.get("INAT_API_TOKEN")
 DRY = "--dry-run" in sys.argv
 REMOVE = "--remove" in sys.argv
 LIMIT = int(sys.argv[sys.argv.index("--limit") + 1]) if "--limit" in sys.argv else None
+ALL = "--all" in sys.argv
+STATE = os.path.join(bi.DATA, "tag_state.json")
 TAG = bi.TAG                      # lower-case, for matching
 TAG_WRITE = os.environ.get("PORTFOLIO_TAG", "Portfolio")  # what gets written
 
@@ -42,6 +49,11 @@ def main():
     cams = bi.load_cameras()
     manual = bi.load_ids("selection.json")
     ids = sorted((bi.select_from_cameras() | manual) - bi.load_ids("exclude.json"))
+    state = json.load(open(STATE)) if os.path.exists(STATE) else {}
+    last = state.get("last_max_id", 0)
+    if not ALL and not REMOVE:
+        ids = [i for i in ids if i > last]
+        print(f"only observations newer than id {last} (last run); pass --all to reconsider everything")
     if LIMIT:
         ids = ids[:LIMIT]
     makes = {}
@@ -84,6 +96,8 @@ def main():
         except Exception as e:
             print(f"    failed: {e}"); failed += 1
         time.sleep(1.0)  # be polite: iNat asks for ≤ 1 write/sec
+    if not DRY and not REMOVE and not LIMIT and ids:
+        json.dump({"last_max_id": max(ids), "updated": time.strftime("%Y-%m-%d")}, open(STATE, "w"))
     print(f"done: {changed} changed, {skipped} already ok, {low_res} skipped as low-res, {deleted} deleted on iNat, {failed} failed{' (dry run)' if DRY else ''}")
 
 
