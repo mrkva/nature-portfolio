@@ -91,6 +91,8 @@
   .layer.out{opacity:0}
   .layer .bg{position:absolute;inset:-40px;width:calc(100% + 80px);height:calc(100% + 80px);object-fit:cover;filter:blur(36px) brightness(.72) saturate(.8)}
   .layer .fg{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center}
+  #spinner{position:absolute;left:12px;bottom:12px;z-index:2;padding:5px 8px;background:var(--bg);color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.1em;animation:breathe 1.6s ease-in-out infinite;pointer-events:none}
+  #spinner.err{animation:none;color:var(--fg)}
   .hit{position:absolute;top:0;bottom:0;width:25%;background:transparent;z-index:1}
   .hit:hover{background:transparent}
   #prev{left:0;cursor:w-resize}#next{right:0;cursor:e-resize}
@@ -163,6 +165,7 @@
     <div class="msg" id="empty" hidden><div style="max-width:420px">Nothing here yet. Tag observations on iNaturalist with <b id="tagName"></b> and they will appear after the next build.</div></div>
     <div id="slides" hidden>
       <div id="stage"></div>
+      <div id="spinner" hidden>Loading</div>
       <button class="hit" id="prev" aria-label="Previous"></button>
       <button class="hit" id="next" aria-label="Next"></button>
     </div>
@@ -231,13 +234,18 @@ const CACHE_MAX = 24;
 
 // ---- image sizes -------------------------------------------------------
 // iNaturalist serves: square 75, thumb 100, small 240, medium 500, large 1024, original ≤2048.
-function stageSize() {
+// Strategy: always show the 1024px "large" file first (150–700 KB), then, only on screens
+// that can use it, swap in the ≤2048px original (1.5–2.5 MB) once it has arrived in the
+// background. Neighbours are pre-cached as "large" only, so stepping is instant and a first
+// visit downloads a few hundred KB instead of ~10 MB.
+function wantsHires() {
   const px = Math.max(window.innerWidth, window.innerHeight) * Math.min(window.devicePixelRatio || 1, 2);
-  return px > 1300 ? 'original' : 'large';
+  return px > 1300 && !(navigator.connection && navigator.connection.saveData);
 }
 const photoUrl = (p, size) => `${p.base}/${size}.${p.ext}`;
-const stageUrl = (o) => photoUrl(o.photos[0], stageSize());
-const thumbUrl = (o) => photoUrl(o.photos[0], 'large');   // grid cells are ~340px+, retina needs the 1024px size
+const stageUrl = (o) => photoUrl(o.photos[0], 'large');
+const hiresUrl = (o) => photoUrl(o.photos[0], 'original');
+const thumbSet = (o) => `${photoUrl(o.photos[0], 'medium')} 500w, ${photoUrl(o.photos[0], 'large')} 1024w`;
 const altText = (o) => `${o.latin}${o.en ? ' (' + o.en + ')' : ''}${o.cat === 'Lichen' ? ' — lichen' : ''} photographed by Jonáš Gruska`;
 
 function preload(url) {
@@ -350,14 +358,36 @@ function show(idx, instant) {
   layer.className = 'layer' + (instant ? ' instant' : '');
   const bg = document.createElement('img'); bg.className = 'bg'; bg.alt = ''; bg.setAttribute('aria-hidden', 'true');
   const fg = document.createElement('img'); fg.className = 'fg'; fg.alt = altText(o);
+  fg.decoding = 'async'; fg.fetchPriority = 'high';
   bg.src = fg.src = url;
   layer.append(bg, fg);
   stage.appendChild(layer);
   preload(url);
 
-  // pre-cache neighbours once the current one has arrived (so it isn't competing for bandwidth)
-  const go = () => preloadAround(list, i);
-  if (fg.complete) go(); else { fg.onload = go; fg.onerror = go; }
+  // loading indicator: only if the photo hasn't arrived within 300 ms
+  const spinner = $('spinner');
+  clearTimeout(state.spinTimer);
+  spinner.hidden = true; spinner.classList.remove('err'); spinner.textContent = 'Loading';
+  state.spinTimer = setTimeout(() => { if (!fg.complete) spinner.hidden = false; }, 300);
+  const isCurrent = () => layer.isConnected && !layer.classList.contains('out');
+  const arrived = () => {
+    if (!isCurrent()) return;
+    clearTimeout(state.spinTimer); spinner.hidden = true;
+    preloadAround(list, i);                           // neighbours, once we're not competing for bandwidth
+    if (wantsHires()) {                               // then quietly upgrade this slide to the original
+      const hi = new Image(); hi.decoding = 'async';
+      hi.onload = () => { if (isCurrent()) fg.src = hi.src; };
+      hi.src = hiresUrl(o);
+    }
+  };
+  let tries = 0;
+  fg.onerror = () => {
+    if (!isCurrent()) return;
+    if (tries++ < 2) { setTimeout(() => { fg.src = bg.src = url + '?retry=' + tries; }, 1500 * tries); return; }
+    clearTimeout(state.spinTimer); spinner.hidden = false; spinner.classList.add('err'); spinner.textContent = 'Could not load photo';
+    preloadAround(list, i);
+  };
+  if (fg.complete && fg.naturalWidth) arrived(); else fg.onload = arrived;
 
   renderFooter(); writeHash(); arm();
 }
@@ -372,7 +402,7 @@ function renderGrid() {
   const cells = $('cells'); cells.innerHTML = '';
   visible().forEach((o, i) => {
     const b = document.createElement('button');
-    const im = document.createElement('img'); im.src = thumbUrl(o); im.alt = altText(o); im.loading = 'lazy';
+    const im = document.createElement('img'); im.src = photoUrl(o.photos[0], 'large'); im.srcset = thumbSet(o); im.sizes = '(max-width:720px) 50vw, 25vw'; im.alt = altText(o); im.loading = 'lazy'; im.decoding = 'async';
     const s = document.createElement('span'); s.textContent = o.latin;
     b.append(im, s);
     b.onclick = () => { setView('slides'); show(i, true); };
