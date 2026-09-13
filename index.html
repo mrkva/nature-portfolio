@@ -295,6 +295,7 @@ async function load() {
   }
   $('loading').hidden = true;
   $('tagName').textContent = state.tag || 'Portfolio';
+  if (document.documentElement.classList.contains('curate')) curPrune();
   readHash();
   renderCats();
   show(state.idx, true);
@@ -463,6 +464,15 @@ function setView(view) {
 // then removes the Portfolio tag on iNaturalist for the "remove" list).
 const curation = { hide: new Set(), remove: new Set(), log: [] };
 const CUR_KEY = 'curation';
+// forget local flags that are already applied (their observation/photo is no longer in the index),
+// so a later export doesn't resurrect entries the apply script has pruned
+function curPrune() {
+  const obsIds = new Set(state.items.map(x => x.id)), photoIds = new Set(state.items.map(x => x.photos[0].id));
+  for (const id of [...curation.remove]) if (!obsIds.has(id)) curation.remove.delete(id);
+  for (const id of [...curation.hide]) if (!photoIds.has(id)) curation.hide.delete(id);
+  curation.log = curation.log.filter(([k, v]) => curation[k].has(v));
+  curSave();
+}
 function curLoadLocal() { try { const d = JSON.parse(localStorage.getItem(CUR_KEY) || '{}'); (d.hide || []).forEach(x => curation.hide.add(x)); (d.remove || []).forEach(x => curation.remove.add(x)); } catch (e) {} }
 function curSave() { try { localStorage.setItem(CUR_KEY, JSON.stringify({ hide: [...curation.hide], remove: [...curation.remove] })); } catch (e) {} curRender(); }
 function curRender() {
