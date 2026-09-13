@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Apply data/curation.json to iNaturalist: remove the Portfolio tag from every
-observation listed under "remove" that still carries it.
+observation listed under "remove" that still carries it. Once an observation is
+untagged it is dropped from the "remove" list again (the tag alone keeps it out of
+the site, and a stale entry would block re-adding it later), so commit the file
+after running.
 
 Hidden photos ("hide") need no iNaturalist change — the build strips them.
 
@@ -36,6 +39,7 @@ def main():
     if hidden:
         q = "https://api.inaturalist.org/v1/observations?user_login=%s&q=%s&search_on=tags&per_page=200&order_by=id&order=asc&id_above=%d"
         id_above, fully_hidden = 0, set()
+        print("scanning tagged observations for ones whose every photo is hidden (about a minute)…", flush=True)
         while True:
             res = api("GET", q % (bi.USER, urllib.parse.quote(TAG), id_above))["results"]
             if not res:
@@ -52,17 +56,18 @@ def main():
     ids = sorted(ids)
     print(f"{len(ids)} observations to untag, {len(hidden)} photos hidden (build-only)")
     changed = skipped = failed = 0
+    done_ids = set()   # untagged now or already untagged/deleted -> can leave the file
     for i, oid in enumerate(ids, 1):
         try:
             res = api("GET", f"https://api.inaturalist.org/v1/observations/{oid}")["results"]
         except Exception as e:
             print(f"  {oid}: fetch failed: {e}"); failed += 1; continue
         if not res:
-            skipped += 1; continue
+            skipped += 1; done_ids.add(oid); continue
         o = res[0]
         tags = list(o.get("tags") or [])
         if not any(t.lower() == TAG for t in tags):
-            skipped += 1; continue
+            skipped += 1; done_ids.add(oid); continue
         new = [t for t in tags if t.lower() != TAG]
         print(f"  [{i}/{len(ids)}] {oid} {o['taxon']['name'] if o.get('taxon') else ''}: {tags} -> {new}")
         if DRY:
@@ -74,12 +79,17 @@ def main():
             after = api("GET", f"https://api.inaturalist.org/v1/observations/{oid}")["results"][0]
             if len(after.get("photos") or []) != before:
                 raise SystemExit(f"ABORT: photo count changed on {oid}; stopping.")
-            changed += 1
+            changed += 1; done_ids.add(oid)
         except SystemExit:
             raise
         except Exception as e:
             print(f"    failed: {e}"); failed += 1
         time.sleep(1.0)
+    if not DRY and done_ids:
+        remaining = sorted(set(int(x) for x in cur.get("remove", [])) - done_ids)
+        cur["remove"] = remaining
+        json.dump(cur, open(os.path.join(bi.DATA, "curation.json"), "w"), indent=1)
+        print(f"pruned {len(done_ids)} untagged observations from data/curation.json ({len(remaining)} left) — commit the file")
     print(f"done: {changed} untagged, {skipped} already untagged/deleted, {failed} failed{' (dry run)' if DRY else ''}")
 
 
