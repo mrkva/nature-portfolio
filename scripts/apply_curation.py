@@ -9,6 +9,8 @@ Hidden photos ("hide") need no iNaturalist change — the build strips them.
 
   INAT_API_TOKEN='<token from https://www.inaturalist.org/users/api_token>' python3 scripts/apply_curation.py --dry-run
   INAT_API_TOKEN='…' python3 scripts/apply_curation.py
+  Add --scan to detect fully-hidden observations via iNaturalist's (slow) tag search
+  instead of the published site index.
 """
 import json, os, sys, time, urllib.request, urllib.parse
 
@@ -35,21 +37,36 @@ def main():
     cur = json.load(open(os.path.join(bi.DATA, "curation.json")))
     ids = {int(x) for x in cur.get("remove", [])}
     hidden = {int(x) for x in cur.get("hide", [])}
-    # an observation whose every photo is hidden counts as removed
+    # an observation whose every photo is hidden counts as removed. The published site
+    # index maps every tagged observation to its photos and loads in a second; --scan
+    # walks the iNaturalist tag search instead (complete but 6-14 s per page).
     if hidden:
-        q = "https://api.inaturalist.org/v1/observations?user_login=%s&q=%s&search_on=tags&per_page=200&order_by=id&order=asc&id_above=%d"
-        id_above, fully_hidden = 0, set()
-        print("scanning tagged observations for ones whose every photo is hidden (about a minute)…", flush=True)
-        while True:
-            res = api("GET", q % (bi.USER, urllib.parse.quote(TAG), id_above))["results"]
-            if not res:
-                break
-            for o in res:
-                pids = [p["id"] for p in (o.get("photos") or [])]
-                if pids and all(p in hidden for p in pids):
-                    fully_hidden.add(o["id"])
-            id_above = res[-1]["id"]
-            time.sleep(0.5)
+        fully_hidden = set()
+        if "--scan" in sys.argv:
+            q = "https://api.inaturalist.org/v1/observations?user_login=%s&q=%s&search_on=tags&per_page=200&order_by=id&order=asc&id_above=%d"
+            id_above = 0
+            print("scanning tagged observations on iNaturalist (slow)…", flush=True)
+            while True:
+                res = api("GET", q % (bi.USER, urllib.parse.quote(TAG), id_above))["results"]
+                if not res:
+                    break
+                for o in res:
+                    pids = [p["id"] for p in (o.get("photos") or [])]
+                    if pids and all(p in hidden for p in pids):
+                        fully_hidden.add(o["id"])
+                id_above = res[-1]["id"]
+                time.sleep(0.5)
+        else:
+            url = os.environ.get("SITE_INDEX", "https://photos.jonasgru.sk/data/index.json")
+            try:
+                idx = api("GET", url)
+                for o in idx["items"]:
+                    pids = [p["id"] for p in o["photos"]]
+                    if pids and all(p in hidden for p in pids):
+                        fully_hidden.add(o["id"])
+                print(f"checked {len(idx['items'])} observations from {url} (built {idx.get('generated')})")
+            except Exception as e:
+                print(f"could not read the site index ({e}); rerun with --scan to check via iNaturalist")
         if fully_hidden:
             print(f"{len(fully_hidden)} observations have every photo hidden -> treated as removed")
         ids |= fully_hidden
