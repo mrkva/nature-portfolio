@@ -269,8 +269,11 @@ async function load() {
   try {
     const r = await fetch(CONFIG.indexUrl, { cache: 'no-cache' });
     const idx = await r.json();
-    state.items = idx.items;
-    state.cats = idx.categories;
+    // one entry per PHOTO: an observation with several photos becomes consecutive slides
+    // that share its details; `photos[0]` is that entry's photo so the rest of the code is unchanged
+    state.items = idx.items.flatMap(o => o.photos.map((p, k) => ({ ...o, photos: [p], k, n: o.photos.length })));
+    const counts = {}; for (const it of state.items) counts[it.cat] = (counts[it.cat] || 0) + 1;
+    state.cats = idx.categories.map(c => ({ name: c.name, count: counts[c.name] || 0 }));
     state.fallback = !!idx.fallback;
     state.tag = idx.tag;
   } catch (e) {
@@ -293,15 +296,15 @@ function readHash() {
   if (cat && (cat === 'All' || state.cats.some(c => c.name === cat))) state.cat = cat;
   const view = h.get('view');
   if (['slides', 'grid', 'about', 'contact'].includes(view)) state.view = view;
-  const id = parseInt(h.get('id'), 10);
-  if (id) { const i = visible().findIndex(o => o.id === id); if (i >= 0) state.idx = i; }
+  const id = parseInt(h.get('id'), 10), k = parseInt(h.get('p') || '0', 10);
+  if (id) { const i = visible().findIndex(o => o.id === id && o.k === k); if (i >= 0) state.idx = i; }
 }
 function writeHash() {
   const h = new URLSearchParams();
   if (state.cat !== 'All') h.set('cat', state.cat);
   if (state.view !== 'slides') h.set('view', state.view);
   const cur = visible()[state.idx];
-  if (cur && state.view === 'slides') h.set('id', cur.id);
+  if (cur && state.view === 'slides') { h.set('id', cur.id); if (cur.k) h.set('p', cur.k); }
   const s = h.toString();
   history.replaceState(null, '', s ? '#' + s : location.pathname);
 }
