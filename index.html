@@ -94,7 +94,7 @@
   .layer.out{opacity:0}
   .layer .bg{position:absolute;inset:-40px;width:calc(100% + 80px);height:calc(100% + 80px);object-fit:cover;filter:blur(36px) brightness(.72) saturate(.8)}
   .layer .lo,.layer .fg{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center}
-  .layer .lo{filter:blur(12px);transform:scale(1.02);transition:opacity .5s ease .2s}
+  .layer .lo{image-rendering:pixelated;transition:opacity .5s ease .2s}   /* 240px file scaled up = mosaic: clearly a preview */
   .layer .fg{opacity:0;transition:opacity .5s ease}
   .layer.sharp .fg{opacity:1}
   .layer.sharp .lo{opacity:0}
@@ -408,8 +408,8 @@ function show(idx, instant) {
   // loading indicator: only if the photo hasn't arrived within 300 ms
   const spinner = $('spinner');
   clearTimeout(state.spinTimer);
-  spinner.hidden = true; spinner.classList.remove('err'); spinner.textContent = 'Loading';
-  state.spinTimer = setTimeout(() => { if (!fg.complete) spinner.hidden = false; }, 300);
+  spinner.classList.remove('err'); spinner.textContent = 'Loading full resolution';
+  spinner.hidden = fg.complete && !!fg.naturalWidth;   // shown right away while only the mosaic preview is there
   const isCurrent = () => layer.isConnected && !layer.classList.contains('out');
   const arrived = () => {
     if (!isCurrent()) return;
