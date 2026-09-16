@@ -127,7 +127,7 @@
   .page .links{max-width:560px;font-size:16px;line-height:1.55;display:grid;gap:12px}
   .page a{text-decoration:underline;text-underline-offset:3px}
   #grid{position:absolute;inset:0;overflow-y:auto}
-  #grid .cells{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:1px;background:var(--fg);border-bottom:1px solid var(--fg)}
+  #grid .cells{display:grid;grid-template-columns:repeat(auto-fill,minmax(408px,1fr));gap:1px;background:var(--fg);border-bottom:1px solid var(--fg)}
   #grid button{position:relative;aspect-ratio:1;overflow:hidden;display:block}
   #grid img{width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity .4s ease}
   #grid img.ok{opacity:1}
@@ -263,7 +263,7 @@ const CONFIG = {
 
 const $ = (id) => document.getElementById(id);
 const dash = (v) => v || '—';
-const state = { items: [], cats: [], cat: 'All', idx: 0, view: 'slides', galleryView: 'slides', paused: false, timer: null, fallback: false, tag: '' };
+const state = { items: [], cats: [], cat: 'All', idx: 0, view: 'grid', galleryView: 'grid', paused: false, timer: null, fallback: false, tag: '' };
 const cache = new Map();          // url -> Image (keeps decoded images alive)
 const CACHE_MAX = 24;
 
@@ -334,13 +334,14 @@ function readHash() {
   if (cat && (cat === 'All' || state.cats.some(c => c.name === cat))) state.cat = cat;
   const view = h.get('view');
   if (['slides', 'grid', 'about', 'contact'].includes(view)) state.view = view;
+  else if (h.has('id')) state.view = 'slides';   // a link to a specific photo opens the slideshow
   const id = parseInt(h.get('id'), 10), k = parseInt(h.get('p') || '0', 10);
   if (id) { const i = visible().findIndex(o => o.id === id && o.k === k); if (i >= 0) state.idx = i; }
 }
 function writeHash() {
   const h = new URLSearchParams();
   if (state.cat !== 'All') h.set('cat', state.cat);
-  if (state.view !== 'slides') h.set('view', state.view);
+  if (state.view !== 'grid') h.set('view', state.view);
   const cur = visible()[state.idx];
   if (cur && state.view === 'slides') { h.set('id', cur.id); if (cur.k) h.set('p', cur.k); }
   const s = h.toString();
@@ -586,7 +587,7 @@ const email = atob(CONFIG.emailB64);
 $('mail').textContent = email;
 for (const el of [$('mail'), ...document.querySelectorAll('[data-mail]')]) el.href = 'mailto:' + email;
 $('inatLink').href = `https://www.inaturalist.org/people/${CONFIG.inatUser}`;
-$('btnHome').onclick = () => setView('slides');
+$('btnHome').onclick = () => setView('grid');
 $('btnSlides').onclick = () => setView('slides');
 $('btnGrid').onclick = () => setView('grid');
 $('btnAbout').onclick = () => setView('about');
