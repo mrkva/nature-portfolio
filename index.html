@@ -393,9 +393,9 @@ function show(idx, instant) {
   };
   const layer = document.createElement('div');
   layer.className = 'layer' + (instant ? ' instant' : '');
-  // the 240px "small" file (~10 KB) arrives almost instantly: it feeds the blurred backdrop and a
-  // blurred stand-in for the photo itself, so the visitor sees the picture forming right away
-  const loUrl = photoUrl(o.photos[0], 'small');
+  // the 100px "thumb" file (~4 KB) arrives almost instantly: it feeds the blurred backdrop and,
+  // scaled up pixelated, an obvious mosaic stand-in until the full-resolution photo has loaded
+  const loUrl = photoUrl(o.photos[0], 'thumb');
   const bg = document.createElement('img'); bg.className = 'bg'; bg.alt = ''; bg.setAttribute('aria-hidden', 'true');
   const lo = document.createElement('img'); lo.className = 'lo'; lo.alt = ''; lo.setAttribute('aria-hidden', 'true');
   const fg = document.createElement('img'); fg.className = 'fg'; fg.alt = altText(o);
