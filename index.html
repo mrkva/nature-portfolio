@@ -52,9 +52,11 @@
 <link rel="preconnect" href="https://inaturalist-open-data.s3.amazonaws.com" crossorigin>
 <link rel="dns-prefetch" href="https://inaturalist-open-data.s3.amazonaws.com">
 <style>
-  :root{--bg:#fff;--fg:#111;--muted:#777;--hover:#f2f2f2;color-scheme:light}
-  :root[data-theme="dark"]{--bg:#111;--fg:#eee;--muted:#8a8a8a;--hover:#222;color-scheme:dark}
-  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111;--fg:#eee;--muted:#8a8a8a;--hover:#222;color-scheme:dark}}
+  :root{--bg:#fff;--fg:#111;--muted:#777;--hover:#f2f2f2;--ph:#e4e4e4;color-scheme:light}
+  :root[data-theme="dark"]{--bg:#111;--fg:#eee;--muted:#8a8a8a;--hover:#222;--ph:#2a2a2a;color-scheme:dark}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111;--fg:#eee;--muted:#8a8a8a;--hover:#222;--ph:#2a2a2a;color-scheme:dark}}
+  @keyframes shimmer{to{background-position:-200% 0}}
+  .ph{background:linear-gradient(90deg,var(--hover) 25%,var(--ph) 50%,var(--hover) 75%);background-size:200% 100%;animation:shimmer 1.4s linear infinite}
   html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased;touch-action:manipulation}
   a{color:var(--fg)}a:hover{color:var(--muted)}
   button{touch-action:manipulation;font-family:inherit;font-size:13px;color:var(--fg);background:var(--bg);border:0;cursor:pointer;padding:0;text-align:left}
@@ -91,7 +93,11 @@
   .layer.in{opacity:1}
   .layer.out{opacity:0}
   .layer .bg{position:absolute;inset:-40px;width:calc(100% + 80px);height:calc(100% + 80px);object-fit:cover;filter:blur(36px) brightness(.72) saturate(.8)}
-  .layer .fg{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center}
+  .layer .lo,.layer .fg{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center}
+  .layer .lo{filter:blur(12px);transform:scale(1.02);transition:opacity .5s ease .2s}
+  .layer .fg{opacity:0;transition:opacity .5s ease}
+  .layer.sharp .fg{opacity:1}
+  .layer.sharp .lo{opacity:0}
   /* curate mode (open the site with ?curate) */
   #curate{display:none;align-items:center;gap:10px;padding:0 12px;background:var(--bg);font-size:11px;white-space:nowrap}
   html.curate #curate{display:flex}
@@ -122,7 +128,8 @@
   #grid{position:absolute;inset:0;overflow-y:auto}
   #grid .cells{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:1px;background:var(--fg);border-bottom:1px solid var(--fg)}
   #grid button{position:relative;aspect-ratio:1;overflow:hidden;display:block}
-  #grid img{width:100%;height:100%;object-fit:cover;display:block}
+  #grid img{width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity .4s ease}
+  #grid img.ok{opacity:1}
   #grid span{position:absolute;left:0;right:0;bottom:0;padding:8px 10px;background:var(--bg);border-top:1px solid var(--fg);font-size:11px;font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
   footer{border-top:1px solid var(--fg);background:var(--fg)}
@@ -377,6 +384,7 @@ function show(idx, instant) {
 
   // the previous photo stays until the next one has actually loaded, then both crossfade
   const reveal = () => {
+    if (layer.classList.contains('in')) return;
     for (const l of stage.querySelectorAll('.layer.in:not(.out)')) { l.classList.add('out'); setTimeout(() => l.remove(), 1400); }
     for (const l of stage.querySelectorAll('.layer:not(.in)')) if (l !== layer) l.remove();   // abandoned, never shown
     void layer.offsetWidth;                 // force style computation so the opacity change transitions
@@ -385,11 +393,15 @@ function show(idx, instant) {
   };
   const layer = document.createElement('div');
   layer.className = 'layer' + (instant ? ' instant' : '');
+  // the 240px "small" file (~10 KB) arrives almost instantly: it feeds the blurred backdrop and a
+  // blurred stand-in for the photo itself, so the visitor sees the picture forming right away
+  const loUrl = photoUrl(o.photos[0], 'small');
   const bg = document.createElement('img'); bg.className = 'bg'; bg.alt = ''; bg.setAttribute('aria-hidden', 'true');
+  const lo = document.createElement('img'); lo.className = 'lo'; lo.alt = ''; lo.setAttribute('aria-hidden', 'true');
   const fg = document.createElement('img'); fg.className = 'fg'; fg.alt = altText(o);
   fg.decoding = 'async'; fg.fetchPriority = 'high';
-  bg.src = fg.src = url;
-  layer.append(bg, fg);
+  bg.src = lo.src = loUrl; fg.src = url;
+  layer.append(bg, lo, fg);
   stage.appendChild(layer);
   preload(url);
 
@@ -402,7 +414,7 @@ function show(idx, instant) {
   const arrived = () => {
     if (!isCurrent()) return;
     clearTimeout(state.spinTimer); spinner.hidden = true;
-    reveal();
+    reveal(); layer.classList.add('sharp');
     preloadAround(list, i);                           // neighbours, once we're not competing for bandwidth
     if (wantsHires()) {                               // then quietly upgrade this slide to the original
       const hi = new Image(); hi.decoding = 'async';
@@ -413,10 +425,12 @@ function show(idx, instant) {
   let tries = 0;
   fg.onerror = () => {
     if (!isCurrent()) return;
-    if (tries++ < 2) { setTimeout(() => { fg.src = bg.src = url + '?retry=' + tries; }, 1500 * tries); return; }
+    if (tries++ < 2) { setTimeout(() => { fg.src = url + '?retry=' + tries; }, 1500 * tries); return; }
     clearTimeout(state.spinTimer); spinner.hidden = false; spinner.classList.add('err'); spinner.textContent = 'Could not load photo';
     reveal(); preloadAround(list, i);
   };
+  // crossfade in as soon as the preview is there; sharpen when the full photo lands
+  lo.onload = () => { if (isCurrent()) reveal(); };
   if (fg.complete && fg.naturalWidth) arrived(); else fg.onload = arrived;
 
   renderFooter(); writeHash(); arm();
@@ -434,6 +448,10 @@ function renderGrid() {
     const b = document.createElement('button');
     const im = document.createElement('img'); im.src = photoUrl(o.photos[0], 'large'); im.srcset = thumbSet(o); im.sizes = '(max-width:720px) 50vw, 25vw'; im.alt = altText(o); im.loading = 'lazy'; im.decoding = 'async';
     const s = document.createElement('span'); s.textContent = o.n > 1 ? `${o.latin} · ${o.k + 1}/${o.n}` : o.latin;
+    b.classList.add('ph');
+    const landed = () => { im.classList.add('ok'); b.classList.remove('ph'); };
+    im.onload = landed; im.onerror = () => b.classList.remove('ph');
+    if (im.complete && im.naturalWidth) landed();
     b.append(im, s);
     if (document.documentElement.classList.contains('curate')) {
       const c = document.createElement('div'); c.className = 'cur';
